@@ -124,8 +124,8 @@ python skills/patent-workflow/scripts/orchestrate.py \
 ╔══════════════════════════════════════════════════╗
 ║           Phase 1 必须确认(不可跳过)              ║
 ║                                                  ║
-║  ☐ 本轮准备写哪些领域的专利？(不得以旧 manifest 的 domain_scope 默认建议)║
-║  ☐ 是否有本地项目/文档需要转化为专利点？              ║
+║  ☐ 本轮准备写哪些领域的专利?(不得以旧 manifest 的 domain_scope 默认建议)║
+║  ☐ 是否有本地项目/文档需要转化为专利点?              ║
 ║  ☐ 用户输入成熟度 → 写入 idea_maturity              ║
 ║                                                  ║
 ║  ⚠️ 新 run 时忽略 manifest 中残留的上轮领域/方向数据      ║
@@ -227,7 +227,7 @@ python skills/patent-workflow/scripts/orchestrate.py \
 - Phase 2 在联网前先用 sanitized query 查询 research cache,命中结果只能作为历史线索或背景证据;联网 smart-search 后仍需把新的 `source_reading_notes[]` 导入 cache,并在 manifest 写入 `research_cache_enabled`、`research_cache_hit_count`、`research_cache_imported_count` 和 `research_cache_path`。
 - `strong_source_count` 表示去重后的可信来源 URL 数;`evidence_table_count` 表示真实结构化证据条数,不再用来源数量近似。
 - 候选按 `total_score = 0.25 * novelty + 0.20 * feasibility + 0.20 * evidence_support + 0.15 * freshness + 0.10 * cross_source_consistency + 0.05 * transferability + 0.05 * innovation_potential` 排序。
-- `candidate_directions[]` 默认输出 7 个候选专利名称;标题必须参考检索到的有效同类专利命名风格生成,不能写死格式,且总字数不超过 25。每个候选只需向用户展示:候选专利名称、参考专利解决的问题、本候选的改良点、证据 URL、非专利热点信源。不得把所有领域强行拼成"四领域大融合",也不得用通用模板覆盖真实领域。需要后续深度查新的组合特征写入 `claims_requiring_patent_verification`,并在 Phase 2 内部的深度复核步骤中继续处理。
+- `candidate_directions[]` 输出 3-7 个候选专利名称(不足 3 个时标记降级 `degraded_run=true`,记录原因);标题必须参考检索到的有效同类专利命名风格生成,不能写死格式,且总字数不超过 25。每个候选只需向用户展示:候选专利名称、参考专利解决的问题、本候选的改良点、证据 URL、非专利热点信源。不得把所有领域强行拼成"四领域大融合",也不得用通用模板覆盖真实领域。需要后续深度查新的组合特征写入 `claims_requiring_patent_verification`,并在 Phase 2 内部的深度复核步骤中继续处理。
 
 **阶段 2 内部深度专利复核规则(2026-05-21 更新):**
 - 专利检索仍由 `smart-search` 执行,但 query 必须显式指向可信专利渠道:Google Patents、Espacenet、WIPO Patentscope、CNIPA。
@@ -290,7 +290,7 @@ python skills/patent-workflow/scripts/orchestrate.py \
 ║  ☐ 2 专利复核 → 只验证引证专利号/标题/法律状态是否真实       ║
 ║  ☐ 3 国知局查新 → 搜初版创新点附近有无冲突的已有专利        ║
 ║  ☐ 4 基于查新优化改良点(差异化调整/放弃撞车方向)            ║
-║  ☐ 5 生成候选专利推荐 → 写入 3 个工件                       ║
+║  ☐ 5 生成候选专利推荐 → 写入 3 个工件(3-7个,不足3个降级标记)║
 ║                                                          ║
 ║  ⚠️ 2→3→4→5 顺序不可颠倒                                  ║
 ║  ⚠️ 复核只查专利(不看论文/热点 - 非专利源只检查相关性和18月)  ║
@@ -616,7 +616,12 @@ smart-search fetch "https://patents.google.com/patent/CNXXXXXXXXXA/zh"
 
 **只有优化后无冲突/可差异化的方向才能生成候选。**
 
-每个候选专利方向包含:
+输出 3–7 个候选。若查新后存活方向不足 3 个：
+- 标记 `degraded_run=true`，记录 `degraded_reason`（如「7 个初版创新点中 5 个被查新撞车/证据不足剔除」）
+- 如实输出实际数量，**禁止**为凑数编造候选
+- 在 Phase 3 向用户说明降级原因
+
+每个候选专利方向包含：
 - 专利名称(≤25字)
 - 要解决的问题(基于查新确认的技术空白)
 - 本候选改良点(与相近专利的差异化)
