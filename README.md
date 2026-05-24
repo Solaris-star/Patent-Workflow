@@ -4,6 +4,28 @@
 
 An orchestrator-driven pipeline that transforms ideas into CN patent disclosures through 10 gated stages: material preprocessing → scope confirmation → innovation mining → direction convergence → prior art search → drafting → consistency audit → IPR simulation review → revision loop → final delivery (`.docx` + `.zip`).
 
+## 🤖 One-Click Setup (Copy to your AI Agent)
+
+> Paste this into Claude Code, Cursor, Codex, or any coding agent:
+
+```
+Clone this repo and set up the Patent Workflow on my machine:
+
+1. git clone https://github.com/asdfqqwe/Patent-Workflow.git && cd Patent-Workflow
+2. pip install -r requirements.txt
+3. Clone and install smart-search-cli:
+   git clone https://github.com/asdfqqwe/smart-search-cli.git /tmp/smart-search-cli
+   cd /tmp/smart-search-cli && pip install -e . && cd -
+4. Configure smart-search API backends in ~/.smart-search/config.yaml:
+   - Grok backend: base_url + api_key
+   - GLM5 backend: base_url + api_key  
+   - Tavily backend: api_key
+   Run `smart-search doctor` to verify at least 2 backends are healthy.
+5. macOS: `brew install pandoc` (for docx generation)
+   Linux: `apt install pandoc` or set PATENT_DOCX_SCRIPT env var
+6. Verify: `python scripts/orchestrate.py --workspace . --manifest artifacts/run_manifest.md --from-phase 0 --dry-run`
+```
+
 ## Architecture
 
 ```
