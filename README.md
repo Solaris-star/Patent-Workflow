@@ -16,14 +16,12 @@ Clone this repo and set up the Patent Workflow on my machine:
 3. Clone and install smart-search-cli:
    git clone https://github.com/asdfqqwe/smart-search-cli.git /tmp/smart-search-cli
    cd /tmp/smart-search-cli && pip install -e . && cd -
-4. Configure smart-search API backends in ~/.smart-search/config.yaml:
-   - Grok backend: base_url + api_key
-   - GLM5 backend: base_url + api_key  
-   - Tavily backend: api_key
-   Run `smart-search doctor` to verify at least 2 backends are healthy.
-5. macOS: `brew install pandoc` (for docx generation)
-   Linux: `apt install pandoc` or set PATENT_DOCX_SCRIPT env var
-6. Verify: `python scripts/orchestrate.py --workspace . --manifest artifacts/run_manifest.md --from-phase 0 --dry-run`
+4. Configure smart-search API backends in ~/.smart-search/config.yaml
+   (Grok, GLM5, Tavily — at least 2 needed).
+   Get API keys from your LLM provider and run `smart-search doctor` to verify.
+5. Docx generation is bundled (scripts/generate_docx.py).
+   For better formatting: brew/winget/apt install pandoc (optional).
+6. Verify: python scripts/orchestrate.py --workspace . --manifest artifacts/run_manifest.md --from-phase 0 --dry-run
 ```
 
 ## Architecture
@@ -103,18 +101,24 @@ python scripts/orchestrate.py \
 |----------|---------|---------|
 | `PATENT_RESEARCH_CACHE_ROOT` | Research cache directory | `$XDG_CACHE_HOME/patent-workflow/research-cache/` or `~/.cache/patent-workflow/research-cache/` |
 | `PATENT_WORKFLOW_RESEARCH_CACHE_DIR` | Alternative cache dir (overrides above) | — |
-| `PATENT_DOCX_SCRIPT` | Path to `create-patent-docx.js` | Auto-detected from workspace |
+| `PATENT_DOCX_SCRIPT` | Optional: path to a custom docx generator script | Bundled `scripts/generate_docx.py` |
 | `PATENT_WORKFLOW_DEBUG` | Enable debug logging | `false` |
 
 ## Dependencies
 
-Phase 9 delivery generation requires one of:
-- **pandoc** (auto-installed via Homebrew on macOS if missing)
-- **Node.js** + docx-js script (`create-patent-docx.js`)
-- **LibreOffice** + pandoc
+**Python (required):**
+```bash
+pip install -r requirements.txt   # pdfplumber, pypdf, python-docx
+```
 
-Phase 2 search requires:
-- **[smart-search-cli](https://github.com/asdfqqwe/smart-search-cli)** — 多路并行搜索 CLI（Grok + GLM5 + Tavily），至少 2 个后端可用
+**Phase 2 — Patent Search:**
+- **[smart-search-cli](https://github.com/asdfqqwe/smart-search-cli)** (Grok + GLM5 + Tavily)
+- Requires API keys for ≥2 backends → see [smart-search-cli docs](https://github.com/asdfqqwe/smart-search-cli)
+
+**Phase 9 — DOCX (auto-selects first available):**
+1. **Bundled** `scripts/generate_docx.py` — uses `python-docx`, zero extra install
+2. **pandoc** — `brew install pandoc` / `winget install pandoc` / `apt install pandoc`
+3. **LibreOffice** + pandoc — last resort
 
 ## File Structure
 

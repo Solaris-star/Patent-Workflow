@@ -292,21 +292,26 @@ class PhaseExecutor(BaseExecutor):
         return []
 
     def _generate_docx(self, md_path: Path, docx_path: Path) -> bool:
-        """尝试生成 docx（优先 pandoc，其次 docx-js）。"""
-        self._ensure_pandoc_available()
+        """生成 docx：优先用自带 Python 生成器，其次 pandoc，最后 LibreOffice。"""
 
-        # 方案 1: pandoc
+        # 方案 1: 自带 generate_docx.py（python-docx，已在 requirements.txt）
+        bundled = Path(__file__).resolve().parent.parent / "generate_docx.py"
+        if bundled.exists():
+            try:
+                cmd = [sys.executable, str(bundled), str(md_path), str(docx_path)]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                if result.returncode == 0 and docx_path.exists():
+                    self._log("docx_bundled", {"path": str(docx_path)})
+                    return True
+                self._log("docx_bundled_fail", {"stderr": result.stderr[-500:]})
+            except Exception as e:
+                self._log("docx_bundled_error", {"error": str(e)})
+
+        # 方案 2: pandoc（跨平台，需单独安装）
+        self._ensure_pandoc_available()
         if shutil.which("pandoc"):
             try:
-                cmd = [
-                    "pandoc",
-                    str(md_path),
-                    "-o", str(docx_path),
-                    "--from", "markdown",
-                    "--to", "docx",
-                    "--reference-doc=" if False else "",  # 占位：如有模板可添加
-                ]
-                cmd = [c for c in cmd if c]
+                cmd = ["pandoc", str(md_path), "-o", str(docx_path), "--from", "markdown", "--to", "docx"]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 if result.returncode == 0 and docx_path.exists():
                     self._log("docx_pandoc", {"path": str(docx_path)})
@@ -314,28 +319,10 @@ class PhaseExecutor(BaseExecutor):
             except Exception as e:
                 self._log("docx_pandoc_fail", {"error": str(e)})
 
-        # 方案 2: docx-js（Node.js 脚本）
-        docx_script = None
-        env_script = os.environ.get("PATENT_DOCX_SCRIPT", "")
-        if env_script:
-            docx_script = Path(env_script)
-        if not docx_script or not docx_script.exists():
-            docx_script = self.workspace / "skills" / "docx" / "scripts" / "create-patent-docx.js"
-        if docx_script.exists() and shutil.which("node"):
-            try:
-                cmd = ["node", str(docx_script), str(docx_path), str(md_path)]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-                if result.returncode == 0 and docx_path.exists():
-                    self._log("docx_js", {"path": str(docx_path)})
-                    return True
-            except Exception as e:
-                self._log("docx_js_fail", {"error": str(e)})
-
-        # 方案 3: LibreOffice soffice
+        # 方案 3: LibreOffice soffice（需 pandoc + LibreOffice）
         if (shutil.which("soffice") or shutil.which("libreoffice")) and shutil.which("pandoc"):
             try:
                 soffice = shutil.which("soffice") or shutil.which("libreoffice")
-                # 先生成 html 再用 soffice 转
                 html_path = md_path.with_suffix(".html")
                 cmd1 = ["pandoc", str(md_path), "-o", str(html_path)]
                 subprocess.run(cmd1, capture_output=True, timeout=30)
