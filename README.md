@@ -193,4 +193,4 @@ patent-workflow/
 
 ## License
 
-MIT — Built-in CNIPA tools (`tools/`) and prompts (`prompts/`) incorporated from [patent-disclosure-skill](https://github.com/handsomestWei/patent-disclosure-skill) under MIT license.
+MIT — Built-in CNIPA tools (`tools/`) and prompts (`prompts/`) incorporated under MIT license.
