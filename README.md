@@ -35,6 +35,9 @@ orchestrate.py (single entry point)
 ## Quick Start
 
 ```bash
+# Install dependencies
+pip install -r requirements.txt
+
 # Initialize a new run manifest
 python scripts/init_run_manifest.py \
     --out artifacts/run_manifest.md \

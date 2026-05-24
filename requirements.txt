@@ -1,0 +1,10 @@
+# Patent Workflow - Python Dependencies
+# Phase 0: PDF/DOCX preprocessing
+pdfplumber>=0.10.0
+pypdf>=4.0.0
+python-docx>=1.0.0
+
+# Phase 9: Optional docx generation backends
+# - pandoc (system package, auto-installed via Homebrew on macOS)
+# - Node.js + create-patent-docx.js (external script, set PATENT_DOCX_SCRIPT env var)
+# - LibreOffice + pandoc (system packages)
