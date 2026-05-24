@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "reference_patent": "CN121526509A",
+  "style_rules": {
+    "fixed_opening": "本发明实施例提供一种...方法，所述方法包括：",
+    "step_chain": "S101. ...；S102. ...；...（步骤编号链）",
+    "explanatory_style": "采用解释型说明书笔法，对每个步骤说明目的、手段、效果",
+    "long_sentence_chain": "步骤描述使用长句链，以分号分隔多个子动作",
+    "dual_summary": "每个实施例段以对偶句收尾，概括技术效果",
+    "implementation_markers": {
+      "opening": "本发明实施例提供一种...",
+      "step_intro": "所述方法包括：",
+      "step_body": "S10X. [动作]，包括：",
+      "closing": "[对偶句概括效果]"
+    }
+  },
+  "desensitization": {
+    "enabled_only_with_local_materials": true,
+    "rules": {
+      "company_product": "某系统",
+      "customer_project": "对象A",
+      "internal_path": "本地路径",
+      "classification_label": "分类A",
+      "business_scale": "一定规模"
+    }
+  }
+}

@@ -9,8 +9,12 @@ __pycache__/
 *.orig
 
 # Artifacts (runtime outputs)
-artifacts/
+artifacts/*
 !artifacts/.gitkeep
+!artifacts/preprocess/
+artifacts/preprocess/*
+!artifacts/preprocess/source_fingerprints.json
+!artifacts/preprocess/phase_00_preprocess_notes.md
 
 # IDE
 .vscode/

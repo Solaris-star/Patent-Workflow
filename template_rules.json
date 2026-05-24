@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "section_order": [
+    "技术领域",
+    "背景技术",
+    "发明内容",
+    "专利附图",
+    "具体实施方式"
+  ],
+  "forbidden_sections": [
+    "权利要求书"
+  ],
+  "numbering_rules": {
+    "steps": "S101-S10x",
+    "figures": "图1,图2,...",
+    "format": "步骤编号须在技术方案、附图说明、具体实施方式中一致出现"
+  },
+  "style_requirements": {
+    "title_format": "以'一种'开头，纯中文，≤25汉字，不含英文和特殊符号",
+    "terminology": "英文术语须翻译为中文（如Agent→智能体），首次出现附中文全称",
+    "sentence_layout": "每句一行；排比列表每项独占一行",
+    "figure_description": "每图一组：图号标题→组成说明→mmd代码",
+    "implementation_style": "doc格式行文，不使用Markdown加粗/分割线"
+  },
+  "writing_constraints": {
+    "no_placeholder_comments": "禁止使用<!-- ED-xxx -->等占位注释",
+    "no_fabricated_data": "无实验报告时禁止写准确率/延迟/样本量等数值",
+    "formula_policy": "公式仅在可验证docx渲染时使用，否则改为文字描述",
+    "local_project_desensitization": "仅在有本地项目材料时启用，联网搜索-only不启用"
+  },
+  "word_budget": {
+    "技术领域": "50-150字",
+    "背景技术": "500-900字",
+    "发明内容": "800-1400字",
+    "附图说明": "30-120字（不含mmd代码，至少4张图）",
+    "具体实施方式": "1800-3500字"
+  }
+}
