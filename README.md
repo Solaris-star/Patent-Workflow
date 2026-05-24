@@ -92,7 +92,7 @@ Phase 9 delivery generation requires one of:
 - **LibreOffice** + pandoc
 
 Phase 2 search requires:
-- smart-search CLI with at least 2 backends available
+- **[smart-search-cli](https://github.com/asdfqqwe/smart-search-cli)** — 多路并行搜索 CLI（Grok + GLM5 + Tavily），至少 2 个后端可用
 
 ## File Structure
 
