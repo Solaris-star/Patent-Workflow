@@ -117,6 +117,11 @@ HANDOFF_RULES = {
             "block_reviews_ready",
         ],
         "required_artifacts": [
+            "part_01_技术领域.md",
+            "part_02_背景技术.md",
+            "part_03_发明内容.md",
+            "part_04_附图说明.md",
+            "part_05_具体实施方式.md",
             "artifacts/draft/shared_context.json",
             "artifacts/draft/phase_05_writing_plan.json",
             "template_rules.json",
@@ -345,6 +350,12 @@ def load_manifest(path: Path) -> Dict[str, Any]:
         if match:
             key = match.group(1).strip()
             value = match.group(2).strip()
+            # 去掉尾部注释（# 之后的内容）和首尾空白
+            comment_idx = value.find("#")
+            if comment_idx >= 0:
+                value = value[:comment_idx].strip()
+            if not value:
+                continue  # 纯注释行，跳过
             # 尝试解析 JSON / 布尔值 / 整数
             if value.lower() == "true":
                 value = True

@@ -89,6 +89,17 @@ class BaseExecutor(ABC):
         return self.workspace
 
     # ── Trace 日志 ─────────────────────────────
+    def _resolve_artifact_path(self, rel_path: str) -> Path:
+        """解析制品路径：优先从 run_dir 读取，回退到 workspace。
+        用于跨阶段读取由 save_artifact 写入的产物。"""
+        p = Path(rel_path)
+        if p.is_absolute():
+            return p
+        run_path = self.run_dir / rel_path
+        if run_path.exists():
+            return run_path
+        return self.workspace / rel_path
+
     def _log(self, action: str, detail: Dict[str, Any]):
         entry = {
             "timestamp": datetime.now().isoformat(),

@@ -163,7 +163,7 @@ class PhaseExecutor(BaseExecutor):
         scores["domain_semantics"] = 10 if not semantic_issues else 0
 
         # 15. 背景技术实质性与附图充分性硬门禁
-        substance_issues = self._check_background_and_figure_substance(blocks)
+        substance_issues = self._check_background_and_figure_substance(blocks, domain_scope)
         issues.extend(substance_issues)
         scores["background_figure_substance"] = 10 if not substance_issues else 0
 
@@ -313,7 +313,7 @@ class PhaseExecutor(BaseExecutor):
         3. 重叠度低于阈值 → 报告 HIGH severity 问题（可能编造了专利内容）
         """
         issues = []
-        ver_path = self.workspace / "artifacts" / "prior_art" / "phase_02_patent_verification.json"
+        ver_path = self._resolve_artifact_path("artifacts/prior_art/phase_02_patent_verification.json")
         if not ver_path.exists():
             # verification records don't exist → this is itself a critical issue
             # But we still try to detect if part_02 cites patents at all
@@ -694,8 +694,8 @@ class PhaseExecutor(BaseExecutor):
         candidates.append("artifacts/prior_art/phase_02_evidence_pack.json")
         candidates.append("artifacts/prior_art/phase_04_evidence_pack.json")
 
-        for path in candidates:
-            full_path = self.workspace / path
+        for path_str in candidates:
+            full_path = self._resolve_artifact_path(path_str)
             if not full_path.exists():
                 continue
             try:
@@ -1108,7 +1108,7 @@ class PhaseExecutor(BaseExecutor):
 
         # 从账本中动态读取领域术语，不再硬编码特定领域
         _ledger = {}
-        _ledger_path = self.workspace / "artifacts" / "draft" / "facts_ledger.json"
+        _ledger_path = self._resolve_artifact_path("artifacts/draft/facts_ledger.json")
         if _ledger_path.exists():
             try:
                 with open(_ledger_path, "r", encoding="utf-8") as f:
@@ -1134,7 +1134,7 @@ class PhaseExecutor(BaseExecutor):
             })
         return issues
 
-    def _check_background_and_figure_substance(self, blocks: Dict[str, str]) -> List[Dict]:
+    def _check_background_and_figure_substance(self, blocks: Dict[str, str], domain_scope: str = "") -> List[Dict]:
         """检查背景技术是否基于具体 CN 专利事实，附图是否足以支撑方案。"""
         issues: List[Dict] = []
         part02 = blocks.get("part_02_背景技术.md", "")
@@ -1156,7 +1156,7 @@ class PhaseExecutor(BaseExecutor):
                 "symptom": "背景技术引用专利过多，疑似罗列检索结果",
                 "fix_suggestion": "只保留 1-2 件最接近现有技术。",
             })
-        generic_phrases = ["与{}或智能检测相关的方案".format(domain_scope[:4]), "可以对{}对象或检测信息进行识别、采集或辅助判断".format(domain_scope[:4])]
+        generic_phrases = ["与{}或智能检测相关的方案".format(domain_scope[:4] if domain_scope else ""), "可以对{}对象或检测信息进行识别、采集或辅助判断".format(domain_scope[:4] if domain_scope else "")]
         if any(phrase in part02 for phrase in generic_phrases):
             issues.append({
                 "severity": "high",

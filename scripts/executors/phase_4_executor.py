@@ -10,7 +10,10 @@ Internal Patent Review Executor — Phase 2 内部深度专利复核适配器。
 """
 
 import json
+import os
 import re
+import shutil
+import sys
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
@@ -20,8 +23,8 @@ from executors.base_executor import BaseExecutor, ExecutorResult, RecoverableErr
 from research_cache import ResearchCache
 
 
-SMART_SEARCH_CMD = "/opt/homebrew/bin/smart-search"
-CURRENT_YEAR = 2026
+SMART_SEARCH_CMD = os.environ.get("SMART_SEARCH_CMD") or shutil.which("smart-search") or "/opt/homebrew/bin/smart-search"
+CURRENT_YEAR = datetime.now().year
 
 TRUSTED_PATENT_CHANNELS = {
     "google_patents": {
@@ -645,11 +648,11 @@ class PhaseExecutor(BaseExecutor):
             if match:
                 year, month, day = [int(part) for part in match.groups()]
                 dt = datetime(year, month, day, tzinfo=timezone.utc)
-                return round((datetime(CURRENT_YEAR, 5, 21, tzinfo=timezone.utc) - dt).days / 365.25, 3)
+                return round((datetime.now(timezone.utc) - dt).days / 365.25, 3)
         year_match = re.match(r"(\d{4})", date_str.strip())
         if year_match:
             dt = datetime(int(year_match.group(1)), 1, 1, tzinfo=timezone.utc)
-            return round((datetime(CURRENT_YEAR, 5, 21, tzinfo=timezone.utc) - dt).days / 365.25, 3)
+            return round((datetime.now(timezone.utc) - dt).days / 365.25, 3)
         return None
 
     def _relevance_score(self, patent: Dict[str, Any]) -> int:

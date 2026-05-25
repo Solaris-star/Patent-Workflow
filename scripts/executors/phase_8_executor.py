@@ -23,8 +23,8 @@ class PhaseExecutor(BaseExecutor):
         print("   🔧 执行审后修订与复审闭环...")
 
         # ── 读取前置报告 ──────────────────────
-        audit_report_path = self.workspace / "artifacts" / "audit" / "phase_06_consistency_audit_report.md"
-        ipr_report_path = self.workspace / "artifacts" / "audit" / "phase_07_ipr_review_report.md"
+        audit_report_path = self._resolve_artifact_path("artifacts/audit/phase_06_consistency_audit_report.md")
+        ipr_report_path = self._resolve_artifact_path("artifacts/audit/phase_07_ipr_review_report.md")
         draft_dir = self.run_dir
 
         audit_issues = self._parse_issues_from_report(audit_report_path)

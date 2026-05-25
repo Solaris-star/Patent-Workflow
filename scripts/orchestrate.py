@@ -84,9 +84,17 @@ STAGES = [
         "manifest_fields": ["selected_direction", "patent_title", "phase_03_confirmation"],
     },
     {
+        "id": "phase_4",
+        "name": "内部专利复核",
+        "executor": "patent_review",
+        "needs_user_input": False,
+        "gate_critical": True,
+    },
+    {
         "id": "phase_5",
         "name": "正文草稿撰写",
         "executor": "modular_writer",
+        "agent_driven": True,
         "needs_user_input": False,
         "gate_critical": True,
     },

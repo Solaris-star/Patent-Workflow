@@ -106,13 +106,25 @@ def generate_docx(md_path: str, docx_path: str) -> bool:
             i += 1
             continue
 
-        # Mermaid code block: skip ```mermaid ... ```, insert placeholder
+        # Mermaid code block: ```mermaid ... ``` → embed as monospace source
         if line.strip().startswith("```mermaid"):
-            doc.add_paragraph("[Mermaid 流程图 - 请手动替换为渲染后的图片]")
             i += 1
+            mermaid_lines = []
             while i < len(lines) and not lines[i].strip().startswith("```"):
+                mermaid_lines.append(lines[i])
                 i += 1
             i += 1  # skip closing ```
+            # Write mermaid source as compact monospace block
+            for ml in mermaid_lines:
+                stripped_ml = ml.rstrip('\n\r')
+                if stripped_ml.strip():
+                    p = doc.add_paragraph()
+                    p.paragraph_format.space_before = Pt(0)
+                    p.paragraph_format.space_after = Pt(0)
+                    p.paragraph_format.line_spacing = 1.0
+                    run = p.add_run(stripped_ml)
+                    run.font.name = 'Courier New'
+                    run.font.size = Pt(7.5)
             continue
 
         # Quote: >

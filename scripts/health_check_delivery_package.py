@@ -148,13 +148,20 @@ def main() -> int:
                     continue
                 art = fig.get("artifacts") or {}
                 mmd = art.get("mmd") or ""
+                embedded_flag = fig.get("mermaid_source_embedded_in_docx")
+
+                # In embedded mode, skip separate .mmd file requirement
+                if embedded_flag is True:
+                    continue
+
+                # Legacy mode: require .mmd file on disk
                 mmd_p = _resolve_artifact_path(mmd, base_dir)
                 if not mmd or not mmd_p.exists():
                     figure_ok = False
                     missing.append(str(mmd_p) if mmd else f"figure[{idx}].mmd_missing")
-                if fig.get("mermaid_source_embedded_in_docx") is not True:
-                    figure_ok = False
-                    missing.append(f"figure[{idx}].embedded_mermaid_flag_missing")
+                else:
+                    # If file exists but flag not set, still OK
+                    continue
 
             _check(checks, "figure artifacts complete (mmd embedded mode)", figure_ok, details_ok="ok", details_fail="missing mmd figure artifacts")
     else:

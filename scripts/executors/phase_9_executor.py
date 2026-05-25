@@ -42,7 +42,8 @@ class PhaseExecutor(BaseExecutor):
 
         # ── 合并分块文件为完整 Markdown ─────────
         merged_md = self._merge_draft_blocks()
-        merged_path = self.workspace / "技术交底书_合并版.md"
+        merged_path = self.workspace / "artifacts" / "delivery" / "技术交底书_合并版.md"
+        merged_path.parent.mkdir(parents=True, exist_ok=True)
         merged_path.write_text(merged_md, encoding="utf-8")
 
         # ── 正文质量硬门禁 ─────────────────────
@@ -398,9 +399,9 @@ class PhaseExecutor(BaseExecutor):
             self._log("health_script_missing", {"path": str(health_script)})
             return False
 
-        consistency_report = self.workspace / "artifacts" / "audit" / "phase_06_consistency_audit_report.md"
-        ipr_report = self.workspace / "artifacts" / "audit" / "phase_07_ipr_review_report.md"
-        facts_ledger = self.workspace / "artifacts" / "draft" / "facts_ledger.json"
+        consistency_report = self._resolve_artifact_path("artifacts/audit/phase_06_consistency_audit_report.md")
+        ipr_report = self._resolve_artifact_path("artifacts/audit/phase_07_ipr_review_report.md")
+        facts_ledger = self._resolve_artifact_path("artifacts/draft/facts_ledger.json")
         out_path = self.workspace / "artifacts" / "delivery" / "phase_09_delivery_health_report.json"
 
         cmd = [

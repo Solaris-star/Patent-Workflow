@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Phase 5 Executor — 正文草稿撰写（分块撰写）。
-读取 Phase 2/4 研究资料，为每个正文块生成干净上下文、草稿骨架和分块审核记录。
-产出：
+Phase 5 Executor - 正文草稿撰写(分块撰写)。
+读取 Phase 2/4 研究资料,为每个正文块生成干净上下文、草稿骨架和分块审核记录。
+产出:
 - part_01_技术领域.md ~ part_05_具体实施方式.md
 - artifacts/draft/block_contexts/*.json
 - artifacts/draft/block_reviews/*.json
@@ -30,7 +30,7 @@ DRAFT_BLOCKS = [
         "max_words": 150,
         "target_min_chars": 50,
         "target_max_chars": 150,
-        "length_reason": "技术领域只用于限定所属技术领域，避免展开应用场景清单。",
+        "length_reason": "技术领域只用于限定所属技术领域,避免展开应用场景清单。",
     },
     {
         "id": "part_02",
@@ -40,7 +40,7 @@ DRAFT_BLOCKS = [
         "max_words": 900,
         "target_min_chars": 500,
         "target_max_chars": 900,
-        "length_reason": "背景技术应结合 1–2 件最相关现有专利说明已有方案和不足，避免泛泛写行业问题。",
+        "length_reason": "背景技术应结合 1-2 件最相关现有专利说明已有方案和不足,避免泛泛写行业问题。",
     },
     {
         "id": "part_03",
@@ -50,7 +50,7 @@ DRAFT_BLOCKS = [
         "max_words": 1400,
         "target_min_chars": 800,
         "target_max_chars": 1400,
-        "length_reason": "发明内容需要覆盖技术问题、技术方案和有益效果，不能只写功能口号。",
+        "length_reason": "发明内容需要覆盖技术问题、技术方案和有益效果,不能只写功能口号。",
     },
     {
         "id": "part_04",
@@ -62,7 +62,7 @@ DRAFT_BLOCKS = [
         "target_max_chars": 120,
         "target_min_figures": 4,
         "requires_mmd_per_figure": True,
-        "length_reason": "附图说明以图号、图题和 Mermaid/mmd 源码为主，自然语言只保留必要图注。",
+        "length_reason": "附图说明以图号、图题和 Mermaid/mmd 源码为主,自然语言只保留必要图注。",
     },
     {
         "id": "part_05",
@@ -72,7 +72,7 @@ DRAFT_BLOCKS = [
         "max_words": 3500,
         "target_min_chars": 1800,
         "target_max_chars": 3500,
-        "length_reason": "具体实施方式是支撑发明内容和后续权利要求的核心部分，应详细展开步骤、模块和附图引用。",
+        "length_reason": "具体实施方式是支撑发明内容和后续权利要求的核心部分,应详细展开步骤、模块和附图引用。",
     },
 ]
 
@@ -86,7 +86,7 @@ BLOCK_EVIDENCE_NEEDS = {
 
 
 class PhaseExecutor(BaseExecutor):
-    """阶段 5 执行器：正文草稿撰写。"""
+    """阶段 5 执行器:正文草稿撰写。"""
 
     def _execute(self) -> ExecutorResult:
         print("   ✍️  执行正文草稿撰写准备...")
@@ -210,7 +210,7 @@ class PhaseExecutor(BaseExecutor):
         else:
             status = "degraded"
             draft_status = "skeleton"
-            degraded_reason = "分块草稿为证据约束骨架，需 Agent 继续扩写"
+            degraded_reason = "分块草稿为证据约束骨架,需 Agent 继续扩写"
 
         manifest_updates = {
             "draft_status": draft_status,
@@ -235,6 +235,13 @@ class PhaseExecutor(BaseExecutor):
             "block_reviews_passed": reviews_passed,
             "degraded_run": status != "success",
         }
+
+        # 同步分块文件到工作区根目录，供 Phase 6-9 使用
+        for block in DRAFT_BLOCKS:
+            src = self.run_dir / block["file"]
+            dst = self.workspace / block["file"]
+            if src.exists() and src.resolve() != dst.resolve():
+                shutil.copy2(src, dst)
 
         return ExecutorResult(
             status=status,
@@ -264,7 +271,7 @@ class PhaseExecutor(BaseExecutor):
             style_log_path = style_md_path if style_md_path.exists() else style_json_path
             self._log("style_found", {"path": str(style_log_path.relative_to(self.workspace)) if style_log_path.is_absolute() else str(style_log_path)})
         if not template_ready and not style_ready:
-            print("   ⚠️ 未找到模板规则/风格画像，将使用默认规范")
+            print("   ⚠️ 未找到模板规则/风格画像,将使用默认规范")
         return template_ready, style_ready
 
     def _load_research_inputs(self) -> Dict[str, Any]:
@@ -392,11 +399,11 @@ class PhaseExecutor(BaseExecutor):
         style_principles = style_profile.get("writing_principles", []) if isinstance(style_profile, dict) else []
         style_examples = style_profile.get("extracted_examples", []) if isinstance(style_profile, dict) else []
         return {
-            # 模板规则 — Phase 5 必须遵守
+            # 模板规则 - Phase 5 必须遵守
             "template_sections": section_order,
             "disabled_sections": disabled_sections,
             "section_order_required": section_order,
-            # 风格画像 — Phase 5 写作参考
+            # 风格画像 - Phase 5 写作参考
             "style_principles": style_principles[:8],
             "style_examples": style_examples[:5],
             "reference_patent_numbers": patent_references,
@@ -412,7 +419,7 @@ class PhaseExecutor(BaseExecutor):
 
     def _short(self, text: Any, limit: int) -> str:
         normalized = re.sub(r"\s+", " ", str(text or "")).strip()
-        return normalized if len(normalized) <= limit else normalized[: limit - 1] + "…"
+        return normalized if len(normalized) <= limit else normalized[: limit - 1] + "..."
 
     def _first_evidence_ids(self, research_inputs: Dict[str, Any], limit: int) -> List[str]:
         ids = []
@@ -429,7 +436,7 @@ class PhaseExecutor(BaseExecutor):
             claim = item.get("claim_supported") or item.get("excerpt")
             if claim:
                 return claim
-        return "检索结果来源复杂，证据难以追溯，正文撰写容易发生事实漂移。"
+        return "检索结果来源复杂,证据难以追溯,正文撰写容易发生事实漂移。"
 
     def _build_shared_context(
         self,
@@ -450,7 +457,7 @@ class PhaseExecutor(BaseExecutor):
         locked_facts = preprocess_context.get("locked_facts") or []
         if final_patents:
             locked_facts.append(
-                "可信背景专利号：" + "、".join(
+                "可信背景专利号:" + "、".join(
                     item.get("publicationNumber", "") for item in final_patents if item.get("publicationNumber")
                 )[:120]
             )
@@ -473,7 +480,7 @@ class PhaseExecutor(BaseExecutor):
             "steps": steps,
             "figures": figures,
             "locked_facts": [self._short(item, 120) for item in locked_facts if item],
-            # ═══ Phase 0 模板与风格规则（必须遵守） ═══
+            # ═══ Phase 0 模板与风格规则(必须遵守) ═══
             "writing_rules": {
                 "section_order": preprocess_context.get("section_order_required", [
                     "技术领域", "背景技术", "发明内容", "附图说明", "具体实施方式",
@@ -522,7 +529,7 @@ class PhaseExecutor(BaseExecutor):
             "selected_direction": direction,
             "shared_context_path": "artifacts/draft/shared_context.json",
             "shared_context_hash": shared_context.get("context_hash"),
-            "context_strategy": "每块读取短 shared_context + 本块 block_context；shared_context 只放公共事实锚点，不放长证据。",
+            "context_strategy": "每块读取短 shared_context + 本块 block_context;shared_context 只放公共事实锚点,不放长证据。",
             "research_inputs": {
                 "research_pack_path": research_inputs.get("research_pack_path"),
                 "candidate_pool_path": research_inputs.get("candidate_pool_path"),
@@ -581,10 +588,10 @@ class PhaseExecutor(BaseExecutor):
 
     def _length_comment(self, status: str, block: Dict[str, Any]) -> str:
         if status == "too_short":
-            return f"{block['name']}偏短，建议补充必要技术内容；{block['length_reason']}"
+            return f"{block['name']}偏短,建议补充必要技术内容;{block['length_reason']}"
         if status == "too_long":
-            return f"{block['name']}偏长，建议压缩与本章节无关的展开；{block['length_reason']}"
-        return f"{block['name']}长度合理；{block['length_reason']}"
+            return f"{block['name']}偏长,建议压缩与本章节无关的展开;{block['length_reason']}"
+        return f"{block['name']}长度合理;{block['length_reason']}"
 
     def _build_block_context(
         self,
@@ -625,7 +632,7 @@ class PhaseExecutor(BaseExecutor):
             "target_file": block["file"],
             "word_range": {"min": block["min_words"], "max": block["max_words"]},
             "project": {"title": title, "domain_scope": domain, "selected_direction": direction},
-            # Phase 0 写作规则（必须遵守）
+            # Phase 0 写作规则(必须遵守)
             "writing_rules": shared_context.get("writing_rules", {}),
             "writing_instructions": self._block_instructions(block_id),
             "allowed_inputs": {
@@ -639,11 +646,11 @@ class PhaseExecutor(BaseExecutor):
             "writing_instructions": self._block_instructions(block_id),
             "review_rules": [
                 "不得引入 context 外的新事实、专利号或来源。",
-                "背景技术只引用 CN 专利号；WO/US/EP 等只能作为外围证据，不进入正文背景专利描述。",
+                "背景技术只引用 CN 专利号;WO/US/EP 等只能作为外围证据,不进入正文背景专利描述。",
                 "每个关键事实应能映射到 evidence_id 或 final_patent_numbers。",
                 "保持术语、步骤号、图号与 shared_context / registry 一致。",
-                "无实验报告或用户确认数据时，禁止写准确率、延迟、样本量、百分比、具体设备参数等实验性数字。",
-                "除非已有可验证公式与 docx 渲染方案，否则不写数学公式。",
+                "无实验报告或用户确认数据时,禁止写准确率、延迟、样本量、百分比、具体设备参数等实验性数字。",
+                "除非已有可验证公式与 docx 渲染方案,否则不写数学公式。",
             ],
         }
 
@@ -730,15 +737,15 @@ class PhaseExecutor(BaseExecutor):
 
     def _block_instructions(self, block_id: str) -> List[str]:
         return {
-            "part_01": ["限定技术领域，聚焦本申请直接涉及的技术范围。"],
-            "part_02": ["只引用可信 CN 专利号说明现有技术缺陷。", "WO/US/EP 等非 CN 来源不得写入背景技术正文。", "整体保持精简，避免长篇罗列。"],
-            "part_03": ["围绕 selected_direction 写技术问题、技术方案和有益效果。", "技术问题固定使用‘本发明要解决的技术问题在于’，不要写‘克服现有……技术缺陷’。"],
-            "part_04": ["每个图注后附对应 Mermaid/mmd 源码。", "只登记已有图号、图题和 Mermaid 源码，不虚构图片文件。"],
-            "part_05": ["按 S101...S10x 展开实施方式。", "每个关键步骤必须引用对应图号，例如‘如图 1 所示’、‘如图 2 所示’。", "无实验报告时禁止写准确率、延迟、样本量、百分比和具体设备参数。", "除非有可验证渲染方案，否则不写公式。"],
+            "part_01": ["限定技术领域,聚焦本申请直接涉及的技术范围。", "自称使用'本申请'而非'本发明'。"],
+            "part_02": ["只引用1-2件最接近的CN专利号说明现有技术及其缺陷。", "WO/US/EP 等非 CN 来源不得写入背景技术正文。", "每条现有技术末尾不附URL。", "缺陷用'第一,''第二,''第三,'排比,非'其一,''其二,'。", "用'由此可见,现有技术至少存在以下不足:'作为过渡句。", "整体保持精简,避免长篇罗列。"],
+            "part_03": ["3.1用'本发明的目的在于提供......以解决......实现......'句式。", "3.2技术方案纯文字描述,不得出现'如图X所示'等图引用。", "3.2按系统组成和方法步骤展开,描述各模块功能和连接关系。", "3.3技术效果用'第一,''第二,'排比,与2.3不足逐条对应。"],
+            "part_04": ["每图一组:标题行→描述段落→mermaid代码块。", "图描述格式:'图X为......,所示系统包括:......'或'图X为......,包括以下步骤:......'。", "不得出现'图X''图X'重复前缀。", "使用flowchart语法,不用graph TD。"],
+            "part_05": ["按S101...S10x展开实施方式。", "起手句:'下面对照附图,通过对较优实施例的描述,对本申请的具体实施方式作进一步详细说明。'", "每个关键步骤引用对应图号,例如'如图1所示'。", "步骤用'S101步骤,'格式(非'步骤S101,')。", "5.1系统架构,5.2方法流程。", "无实验报告时禁止写准确率、延迟、样本量。", "自称用'本申请'。"],
         }.get(block_id, [])
 
     def _detect_content_contamination(self, block: Dict[str, Any], content: str) -> List[str]:
-        """识别不能进入交底书正文的污染；命中时必须重生安全草稿。"""
+        """识别不能进入交底书正文的污染;命中时必须重生安全草稿。"""
         block_id = block["id"]
         reasons: List[str] = []
         internal_terms = [
@@ -764,7 +771,7 @@ class PhaseExecutor(BaseExecutor):
             for heading in ["3.1 本申请所需要解决的技术问题", "3.2 本申请的技术方案", "3.3 本申请的技术效果"]:
                 if heading not in content:
                     reasons.append(f"发明内容缺少模板小节: {heading}")
-            if "本发明要解决的技术问题在于，克服" in content:
+            if "本发明要解决的技术问题在于,克服" in content:
                 reasons.append("技术问题句式有语病")
         if block_id == "part_04":
             if "```mermaid" not in content:
@@ -805,16 +812,16 @@ class PhaseExecutor(BaseExecutor):
     def _make_skeleton(self, block: Dict[str, Any], context: Dict[str, Any]) -> str:
         """生成分块正文的结构模板。
 
-        仅提供 CN 专利规范的章节标题和结构占位，不包含任何领域相关的
+        仅提供 CN 专利规范的章节标题和结构占位,不包含任何领域相关的
         具体技术内容。领域内容由 Agent 根据 Phase 2 研究结果和 shared_context
         在占位处撰写。
 
-        格式规范由 _block_instructions() 定义，
+        格式规范由 _block_instructions() 定义,
         完整性由 _detect_content_contamination() 和 Phase 6/7 审计保证。
         """
         block_id = block["id"]
         raw_direction = context["project"].get("selected_direction") or context["project"].get("title", "[待确认]")
-        # 防止 "一种一种" 重复：如果方向本身已含"一种"前缀则去掉
+        # 防止 "一种一种" 重复:如果方向本身已含"一种"前缀则去掉
         direction = raw_direction.removeprefix("一种").removeprefix("一种").strip()
         domain = context["project"].get("domain_scope", "")
         instructions = self._block_instructions(block_id)
@@ -822,28 +829,28 @@ class PhaseExecutor(BaseExecutor):
         templates = {
             "part_01": f"""# 一、技术领域
 
-本发明涉及{domain or '[领域]'}技术领域，特别涉及一种{direction}。
+本发明涉及{domain or '[领域]'}技术领域,特别涉及一种{direction}。
 
-> 撰写要求：限定技术领域，聚焦本申请直接涉及的技术范围，不展开适用场景或行业清单。
+> 撰写要求:限定技术领域,聚焦本申请直接涉及的技术范围,不展开适用场景或行业清单。
 """,
             "part_02": """# 二、背景技术
 
 ## 2.1 与本申请相关的现有技术背景知识
 
-[待撰写：基于 shared_context 中 domain_scope 描述本领域的通用技术背景，
+[待撰写:基于 shared_context 中 domain_scope 描述本领域的通用技术背景,
 说明现有主流方法或方案的基本原理和典型实现路径。
 不得展开适用场景清单或行业举例。]
 
 ## 2.2 与本申请相关的最接近的现有技术
 
-[待撰写：引用 phase_02_research_pack 和 evidence_pack 中最接近的 CN 专利，
-每条引用应包含：专利号、公开的技术方案要点、与本申请的关联。
-只引用 CN 专利号（如 CN110910151A），不得引用 WO/US/EP 专利。]
+[待撰写:引用 phase_02_research_pack 和 evidence_pack 中最接近的 CN 专利,
+每条引用应包含:专利号、公开的技术方案要点、与本申请的关联。
+只引用 CN 专利号(如 CN110910151A),不得引用 WO/US/EP 专利。]
 
 ## 2.3 现有技术的缺陷和不足
 
-[待撰写：逐条说明上述现有技术在本申请关注的技术问题上的不足。
-使用"第一，……；第二，……；第三，……"句式，每条独立成行。
+[待撰写:逐条说明上述现有技术在本申请关注的技术问题上的不足。
+使用"第一,......;第二,......;第三,......"句式,每条独立成行。
 总结应自然引出本申请要解决的技术问题。]
 """,
             "part_03": f"""# 三、发明内容
@@ -852,25 +859,25 @@ class PhaseExecutor(BaseExecutor):
 
 本发明的目的在于提供一种{direction}。
 
-本发明要解决的技术问题在于：[待撰写：基于 shared_context 的技术问题描述，
-说明现有技术无法解决的具体技术问题，以及本发明实现的技术目标]。
+本发明要解决的技术问题在于:[待撰写:基于 shared_context 的技术问题描述,
+说明现有技术无法解决的具体技术问题,以及本发明实现的技术目标]。
 
 ## 3.2 本申请的技术方案
 
-为了实现上述目的，本发明采用的技术方案为：一种{direction}。
+为了实现上述目的,本发明采用的技术方案为:一种{direction}。
 
-[待撰写：基于 facts_ledger 和 shared_context 的技术方案，
-按系统组成（单元/模块）和方法步骤（S101…S10x）展开。
+[待撰写:基于 facts_ledger 和 shared_context 的技术方案,
+按系统组成(单元/模块)和方法步骤(S101...S10x)展开。
 系统组成描述各单元的功能和连接关系。
 方法步骤按 facts_ledger.step_registry 中的编号和顺序逐一描述。
 禁止虚构未在图示中出现的组件或步骤。]
 
 ## 3.3 本申请的技术效果
 
-与现有技术相比，本发明至少具有以下技术效果：
+与现有技术相比,本发明至少具有以下技术效果:
 
-[待撰写：基于 shared_context 中 locked_facts 和 evidence 的技术效果，
-使用"其一，……；其二，……；其三，……"句式，每条独立成行。
+[待撰写:基于 shared_context 中 locked_facts 和 evidence 的技术效果,
+使用"其一,......;其二,......;其三,......"句式,每条独立成行。
 技术效果应与 2.3 中列举的现有技术不足形成对应关系。]
 """,
             "part_04": self._figure_description_markdown(),
@@ -878,21 +885,29 @@ class PhaseExecutor(BaseExecutor):
 
 下面对照附图，通过对较优实施例的描述，对本申请的具体实施方式作进一步详细说明。
 
-[待撰写：基于 facts_ledger.step_registry 中 S101…S10x 步骤编号，
-按顺序展开每个步骤的具体实施方式。
-每个关键步骤必须引用对应图号，例如"如图 1 所示"、"如图 2 所示"。]
+## 5.1 系统架构实施例
+
+[待撰写：基于facts_ledger描述系统架构，列出各模块的部署位置、硬件平台和功能。每个模块描述其组成部件和关键参数。]
+
+## 5.2 方法流程实施例
+
+如图 2 所示，本申请提供的一种[方向名称]方法，包括以下步骤。
+
+S101步骤，[步骤名称]。
+
+[待撰写：基于facts_ledger.step_registry中S101…S10x步骤编号，按顺序展开每个步骤。每步骤包含：操作内容、关键参数/阈值、判定规则。引用对应图号，例如"如图 3 所示"。]
+
+[后续步骤 S102-S10x 按同格式撰写]
 
 > 撰写要求：
-> - 从 S101 开始逐步骤描述，每步骤独立成段
-> - 每步骤引用至少一个图号
-> - 描述步骤的核心逻辑（"先……再……最后……"结构）
-> - 无实验报告时禁止写准确率、延迟、样本量、百分比和具体设备参数
-> - 除非有可验证渲染方案，否则不写数学公式
-> - 基于 facts_ledger.terminology 使用统一术语
-> - 步骤编号（S101…S10x）必须与 shared_context.step_registry 一致
+> - 步骤编号 S101...S10x 与 facts_ledger.step_registry 一致
+> - 每步骤独立成段，步骤用"S101步骤，"格式
+> - 每步骤引用对应图号，例如"如图 1 所示"、"如图 2 所示"
+> - 无实验报告时禁止写准确率、延迟、样本量、百分比
+> - 除非有可验证渲染方案，否则不写数学表达式
 """,
         }
-        return templates.get(block_id, f"# {{block['name']}}\n\n[待撰写：请根据 Phase 2 研究结果撰写本节内容。]")
+        return templates.get(block_id, f"# {{block['name']}}\n\n[待撰写:请根据 Phase 2 研究结果撰写本节内容。]")
 
 
     def _cn_only_evidence(self, evidence: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -906,38 +921,40 @@ class PhaseExecutor(BaseExecutor):
         for figure in self._build_figure_registry():
             figure_id = figure.get("figure_id", "图")
             caption = figure.get("caption", "附图")
-            lines.append(f"{figure_id} 为{caption}。")
+            lines.append(f"{figure_id}为{caption}。")
+            lines.append("")
+            lines.append(f"{figure_id}所示系统包括：[待撰写：基于facts_ledger描述该图包含的模块/组件/步骤]")
             mmd_text = self._default_mermaid_source(figure_id)
-            lines.extend(["", f"**{figure_id} - {caption}（Mermaid 源码）：**", "```mermaid", mmd_text, "```", ""])
+            lines.extend(["", "```mermaid", mmd_text, "```", ""])
         return "\n".join(lines).rstrip() + "\n"
 
     def _default_mermaid_source(self, figure_id: str) -> str:
-        """返回领域无关的默认 Mermaid 骨架。Agent 应替换为实际附图。"""
+        """返回 Mermaid flowchart 骨架。Agent 应替换为对应领域的实际附图。"""
         if "2" in figure_id:
-            return "graph TD\n    S101[步骤1] --> S102[步骤2]\n    S102 --> S103[步骤3]\n    S103 --> S104[步骤4]\n    S104 --> S105[步骤5]"
+            return "flowchart LR\n    S101[步骤1] --> S102[步骤2]\n    S102 --> S103[步骤3]\n    S103 --> S104[步骤4]\n    S104 --> S105[步骤5]"
         if "3" in figure_id:
-            return "graph LR\n    A[输入A] --> D[处理单元]\n    B[输入B] --> D\n    C[输入C] --> D\n    D --> E[输出结果]"
+            return "flowchart TB\n    A[输入A] --> D[处理单元]\n    B[输入B] --> D\n    C[输入C] --> D\n    D --> E[输出结果]"
         if "4" in figure_id:
-            return "graph TD\n    A[结论] --> B[依据1]\n    A --> C[依据2]\n    B --> D[原始来源]\n    C --> D"
-        return "graph TD\n    A[输入] --> B[处理单元]\n    B --> C[输出]"
+            return "flowchart TB\n    A[决策条件A] --> B[分支1]\n    A --> C[分支2]\n    B --> D[结果1]\n    C --> E[结果2]"
+        return "flowchart TB\n    subgraph 系统模块\n        A[输入] --> B[处理单元]\n        B --> C[输出]\n    end"
 
     def _evidence_markdown(self, evidence: List[Dict[str, Any]]) -> str:
         if not evidence:
-            return "- 暂无结构化证据，本块只能生成保守骨架，需补充研究资料后扩写。"
+            return "- 暂无结构化证据,本块只能生成保守骨架,需补充研究资料后扩写。"
         lines = []
         for item in evidence[:6]:
             eid = item.get("evidence_id") or item.get("publicationNumber") or "EV"
             excerpt = self._sanitize_evidence_excerpt(item)
-            lines.append(f"- `{eid}`：{excerpt[:120]}")
+            lines.append(f"- `{eid}`:{excerpt[:120]}")
         return "\n".join(lines)
 
     def _sanitize_evidence_excerpt(self, item: Dict[str, Any]) -> str:
         """清理证据摘录中的模型元数据、耗时数字和过长正文。"""
-        raw = item.get("claim_supported") or item.get("title") or item.get("excerpt") or "证据已登记，正文仅引用其证据编号和可核验事实"
+        raw = item.get("claim_supported") or item.get("title") or item.get("excerpt") or "证据已登记,正文仅引用其证据编号和可核验事实"
         text = re.sub(r"\*\*Provider:[^\n]+\n*", "", str(raw), flags=re.IGNORECASE)
         text = re.sub(r"\([^)]*\b\d+\s*ms\b[^)]*\)", "", text, flags=re.IGNORECASE)
         text = re.sub(r"\b\d+\s*ms\b", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"\s+", " ", text).strip(" -*：")
+        text = re.sub(r"\s+", " ", text).strip(" -*:")
         if not text or text.lower().startswith("provider:"):
             text = item.get("title") or item.get("publicationNumber") or item.get("evidence_id") or "证据已登记"
         return text
@@ -1004,11 +1021,11 @@ class PhaseExecutor(BaseExecutor):
         if "待补充" in content or "暂无结构化证据" in content:
             findings.append({"severity": "low", "issue": "仍含待补充占位", "fix": "补齐研究资料后替换占位"})
         if "<!--" in content or "需扩展内容" in content:
-            findings.append({"severity": "high", "issue": "正文含修订占位注释", "fix": "删除占位注释，改由 Agent 生成真实内容"})
+            findings.append({"severity": "high", "issue": "正文含修订占位注释", "fix": "删除占位注释,改由 Agent 生成真实内容"})
         if block["id"] == "part_02" and re.search(r"\b(WO|US|EP)\d", content):
             findings.append({"severity": "high", "issue": "背景技术引用非 CN 专利", "fix": "背景技术正文只保留 CN 专利号"})
-        if block["id"] == "part_03" and "本发明要解决的技术问题在于，克服" in content:
-            findings.append({"severity": "medium", "issue": "技术问题句式有语病", "fix": "改为‘本发明要解决的技术问题在于’"})
+        if block["id"] == "part_03" and "本发明要解决的技术问题在于,克服" in content:
+            findings.append({"severity": "medium", "issue": "技术问题句式有语病", "fix": "改为'本发明要解决的技术问题在于'"})
         if block["id"] == "part_05":
             if not re.search(r"如图\s*[12一二]", content):
                 findings.append({"severity": "medium", "issue": "具体实施方式未引用具体图号", "fix": "步骤描述中引用图 1 或图 2"})

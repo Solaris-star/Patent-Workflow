@@ -462,10 +462,13 @@ class PhaseExecutor(BaseExecutor):
 
     # ── 审查子方法 ──────────────────────────
     def _load_evidence_pack(self) -> Dict[str, Any]:
-        """读取 Phase 2 内部专利复核证据包，用于 IPR 证据基础核查。"""
+        """读取 Phase 2/4 专利复核证据包，用于 IPR 证据基础核查。
+        优先从 run_dir 读取，回退到 workspace artifacts。"""
         candidates = [
-            self.workspace / "artifacts" / "prior_art" / "phase_02_evidence_pack.json",
+            self.run_dir / "artifacts" / "prior_art" / "phase_04_evidence_pack.json",
+            self.run_dir / "artifacts" / "prior_art" / "phase_02_evidence_pack.json",
             self.workspace / "artifacts" / "prior_art" / "phase_04_evidence_pack.json",
+            self.workspace / "artifacts" / "prior_art" / "phase_02_evidence_pack.json",
         ]
         for path in candidates:
             if not path.exists():
@@ -929,7 +932,10 @@ class PhaseExecutor(BaseExecutor):
             "part_05_具体实施方式.md",
         ]
         for sec in required_sections:
-            p = self.workspace / sec
+            # 优先从 run_dir 读取，回退到 workspace
+            p = self.run_dir / sec
+            if not p.exists():
+                p = self.workspace / sec
             if not p.exists() or len(p.read_text(encoding="utf-8")) < 50:
                 return False
         return True
