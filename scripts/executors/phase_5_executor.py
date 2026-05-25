@@ -317,7 +317,7 @@ class PhaseExecutor(BaseExecutor):
             "schema_version": "1.0",
             "enabled": enabled,
             "trigger": "local_project_materials" if enabled else "online_only_no_redaction",
-            "rules_source": "handsomestWei/patent-disclosure-skill disclosure_builder.md §7.5 redaction requirements",
+            "rules_source": "patent-workflow 内嵌脱敏规则：公司/产品名泛化→某系统，客户/标签→对象A，内部路径→本地路径，规模→一定规模，分类标签→分类A",
             "rules": [
                 {"name": "company_or_product", "replacement": "某系统"},
                 {"name": "customer_or_business_label", "replacement": "对象A"},
@@ -350,8 +350,6 @@ class PhaseExecutor(BaseExecutor):
                 redacted = redacted.replace(term, replacement)
         redacted = re.sub(r"(?:/[A-Za-z0-9._-]+){2,}", "本地路径", redacted)
         redacted = re.sub(r"[A-Za-z]:\\(?:[^\\\s]+\\)+[^\\\s]+", "本地路径", redacted)
-        redacted = re.sub(r"每日\s*\d+(?:\.\d+)?\s*(?:件|条|次|单|人|辆|GB|MB)", "每日一定规模", redacted, flags=re.IGNORECASE)
-        redacted = re.sub(r"\d+(?:\.\d+)?\s*(?:件/日|条/日|次/日|单/日)", "一定规模", redacted, flags=re.IGNORECASE)
         redacted = re.sub(r"类别\s*[0-9一二三四五六七八九十]+", "分类A", redacted)
         return redacted
 
@@ -365,7 +363,7 @@ class PhaseExecutor(BaseExecutor):
             title = direction.get("title")
             if isinstance(title, str) and title.strip():
                 return title.strip() if title.strip().endswith("系统") else f"{title.strip()}及系统"
-        if isinstance(direction, str) and direction.strip() and direction.strip() != "CD-01":
+        if isinstance(direction, str) and direction.strip():
             return direction.strip()
         return "未命名专利"
 

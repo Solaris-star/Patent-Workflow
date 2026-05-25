@@ -5,17 +5,19 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-CN_PREFIX = ("CN",)
+# 支持的主要专利局前缀（主要用于 prior-art 评分时的 CN bonus 计算）
+# CN=中国, WO=WIPO PCT, EP=欧洲, US=美国, JP=日本, KR=韩国
+PATENT_PREFIXES = ("CN", "WO", "EP", "US", "JP", "KR")
 
 # Profiles allow phase gates to be tuned per domain without breaking legacy behavior.
 # Default profile MUST preserve historical behavior.
 PROFILES = {
-    "legacy": {
-        "project_terms": ["项目管理", "项目计划", "项目实施", "项目协同", "项目执行", "项目进度", "软件开发项目", "工作流"],
-        "ai_terms": ["人工智能", "AI", "大模型", "大语言模型", "智能体", "生成式", "模型"],
+"legacy": {
+        "project_terms": ["方法", "系统", "装置", "流程", "工作流"],
+        "ai_terms": ["智能", "AI", "模型", "语义", "自动", "自适应"],
         "constraint_terms": [],
-        "negative_terms": ["车间", "工厂", "锻造", "施工", "建筑工程施工", "生产调度", "机器人路径", "智能客服"],
-        "weights": {"project": 20, "ai": 20, "constraint": 0, "negative": 25, "cn_bonus": 10},
+        "negative_terms": [],
+        "weights": {"project": 15, "ai": 15, "constraint": 0, "negative": 0, "cn_bonus": 10},
     },
     # For AI+项目管理：项目计划隐性约束→形式化模型→冲突检测/修复→可解释回写
     "ai_project_plan_constraints": {
@@ -123,7 +125,7 @@ def relevance_score(p: dict, profile: str = "legacy"):
     score -= min(negative_hits, 3) * int(w.get("negative", 25))
 
     pub = p.get("publicationNumber", "") or p.get("applicationNumber", "") or p.get("patent_id", "")
-    if any(str(pub).startswith(prefix) for prefix in CN_PREFIX):
+    if any(str(pub).startswith(prefix) for prefix in PATENT_PREFIXES):
         score += int(w.get("cn_bonus", 10))
 
     if p.get("trusted_patent_source"):
@@ -140,7 +142,7 @@ def is_cn(p: dict):
     # Support both camelCase (legacy) and snake_case (agent-native) field names
     pub = p.get("publicationNumber", "") or p.get("patent_id", "") or ""
     app = p.get("applicationNumber", "") or ""
-    return str(pub).startswith(CN_PREFIX) or str(app).startswith(CN_PREFIX)
+    return str(pub).startswith(PATENT_PREFIXES) or str(app).startswith(PATENT_PREFIXES)
 
 
 def normalize_input(data):

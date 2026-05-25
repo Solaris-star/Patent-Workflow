@@ -447,12 +447,12 @@ class Orchestrator:
             print("   ⚠️ 未找到候选方向列表（Phase 2 产物缺失 candidate_directions）")
             return
 
-        # Domain emoji mapping
-        domain_emoji = {
-            "cross_domain": "🔗", "autonomous_driving": "🚗",
-            "smart_cockpit": "🚘", "general_ai": "🤖",
-            "cross": "🔗", "ad": "🚗", "cockpit": "🚘", "ai": "🤖",
-        }
+        # Domain emoji mapping — 基于领域名称 deterministically 分配，不限于预设领域
+        emoji_palette = ["🔬", "⚙️", "🌐", "🧠", "💡", "🛠️", "📊", "🔗", "🧩", "🎯"]
+        def _domain_emoji(domain: str) -> str:
+            if not domain:
+                return "📌"
+            return emoji_palette[sum(ord(ch) for ch in domain) % len(emoji_palette)]
 
         print(f"\n   📋 候选专利方向（来源: {source}）：")
         print(f"   {'─' * 58}")
@@ -466,7 +466,7 @@ class Orchestrator:
             improvement = c.get("improvement", "")[:80]
             patent_refs = c.get("patent_refs", [])
             non_patent_sources = c.get("non_patent_sources", [])
-            emoji = domain_emoji.get(domain, "📌")
+            emoji = _domain_emoji(domain)
 
             circled = chr(0x245F + idx)  # ① ② ③ ...
             print(f"   {circled} {emoji} {title}")
