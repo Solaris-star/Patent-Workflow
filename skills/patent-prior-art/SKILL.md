@@ -28,10 +28,11 @@ description: |
 
 | 优先级 | 通道 | 说明 |
 |---|---|---|
-| **1（主路径）** | 浏览器自动化上 **CNIPA 国知局检索系统** | playwright MCP 或 browser-cdp 打开国知局专利检索入口，输入检索式 → 翻页收集命中 → 进详情页取全字段。官方源，**检索即验证**（`verificationSource: cnipa`），无需二次核验 |
-| 2（兜底） | 搜索发现 + Google Patents 验证 | 无浏览器通道时：用 smart-search 通用入口或宿主内置搜索发现候选（加 `site:patents.google.com` 限定词提高命中率），再抓取 `patents.google.com/patent/CN…` 静态页逐条核验（`verificationSource: google_patents`） |
+| **1（主路径首选）** | **内置 CNIPA 检索脚本** | `python <patent-skill-dir>/scripts/cnipa/cnipa_epub_search.py 词1 词2 …`（脚本化 Playwright 查询国知局官方公布站 epub.cnipa.gov.cn）。stdout 单行 `EPUB_HITS_JSON:` + JSON 数组（标题/公开号/摘要，按公开号去重）。检索词一段一查按空白拆分，语义化检索单位须在生成命令前拆好。官方源，**检索即验证**（`verificationSource: cnipa`）。前置：`pip install playwright` + `python -m playwright install chromium`；WAF 等待可调 `EPUB_WAF_MAX_WAIT_SEC` |
+| 2（主路径备用） | 浏览器自动化现场操作国知局 | 脚本不可用（未装 playwright python 依赖）但有 playwright MCP / browser-cdp 时：打开国知局检索入口，输入检索式 → 收集命中 → 详情页取全字段，同为 `verificationSource: cnipa` |
+| 3（兜底） | 搜索发现 + Google Patents 验证 | 无任何浏览器能力时：smart-search 通用入口或宿主内置搜索发现候选（`site:patents.google.com` 限定词提高命中率），抓取 `patents.google.com/patent/CN…` 静态页逐条核验（`verificationSource: google_patents`） |
 
-主路径操作要点：检索系统需要加载 JS，等待结果表格渲染完成再取数；遇验证码/登录墙时向用户说明并请其在浏览器完成一次人机验证（browser-cdp 复用登录态可基本免此步骤），不可跳过官方源静默降级——确需降级到兜底通道时在 `search_failures` 记录原因。
+执行要点：优先级 1 探测 = 脚本文件存在且 `python -c "import playwright"` 成功；遇验证码/WAF 长阻塞向用户说明（browser-cdp 复用登录态可基本免人机验证），不可静默跳过官方源——降级到 3 时必须在 `search_failures` 记录原因。
 
 ## 检索工作流
 
@@ -55,7 +56,7 @@ description: |
 
 ### Step 3：检索与扩池
 
-按「检索通道优先级」执行：主路径用浏览器在国知局检索系统逐条跑检索式，翻页收集命中，进详情页取 title / 申请号 / 公开号 / 日期 / 摘要 / 申请人；兜底路径用搜索发现候选后抓 Google Patents 详情页取同等字段。
+按「检索通道优先级」执行：首选 CNIPA 脚本逐组检索词跑 `cnipa_epub_search.py` 并解析 `EPUB_HITS_JSON`（摘要缺失的重点候选再补抓详情）；脚本不可用时浏览器现场操作国知局；最后才落搜索 + Google Patents 兜底。目标字段：title / 申请号 / 公开号 / 日期 / 摘要 / 申请人。
 
 **候选不足或相关性弱时自动换词重检**（同义词、场景词、申请人、分类号辅助词、近义应用域），不得拿低相关专利凑数，不得把新闻/博客/产品页当专利候选——非专利页面只能作外围证据（`is_auxiliary: true`）辅助扩词与背景判断。
 
