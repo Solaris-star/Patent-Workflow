@@ -29,7 +29,8 @@
       "excerpt": "从已抓取正文中摘录的原文片段，至少 50 个字符，能支撑对应结论……",
       "source_tier": "L2",
       "claim": "该证据支撑的主张",
-      "date": "2026-05-01"
+      "date": "2026-05-01",
+      "freshness": "fresh"
     }
   ]
 }
@@ -45,7 +46,11 @@
 | `outline_skeleton` | ≥ 5 节，每节含非空 `section_id` + `title` + `intent`；`covers_questions` / `evidence_ids` 引用的 ID 必须真实存在 |
 | `evidence` | ≥ 8 条，每条含非空 `evidence_id` + http(s) `url` + ≥ 50 字符 `excerpt` |
 
-`source_tier` / `claim` / `date` 为推荐字段，validator 不强制，但审计与下游写作需要。
+`source_tier` / `claim` 为推荐字段；**`date` 与 `freshness` 为契约必填**（validator 暂不强制，但缺失即视为调研质量缺陷）：
+
+- `date`：来源页面的发布/提交日期；确实无法确定时填 `"unknown"` 并降权，禁止猜测。
+- `freshness`：按 `freshness_window`（默认 18 个月）分级——`fresh`（≤6 个月）/ `valid`（6 个月~窗口内）/ `stale`（超窗口）。
+- **时效红线**：支撑「现状/前沿/竞品动向」类结论的证据必须是 `fresh`/`valid`；`stale` 证据只能作技术基线与历史背景，且必须显式标注。AI/自动驾驶等快演化领域严格执行 18 个月窗口。
 
 ## 汇报层输出（必须，Markdown）
 

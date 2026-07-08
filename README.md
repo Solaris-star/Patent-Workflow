@@ -22,9 +22,24 @@ patent                总路由 + 全流程编排 + 门禁脚本 + run manifest
 | 文件 | 作用 |
 |---|---|
 | `search-protocol.md` | 数采两层能力模型（发现/验证），provider 分级与降档规则 |
-| `research-pack-contract.md` | 两个 research skill 的统一产出契约 |
+| `research-pack-contract.md` | 两个 research skill 的统一产出契约（含 18 个月时效红线） |
 | `HANDOFF_CONTRACT.md` | 各步骤交接的最小字段 |
 | `RUN_MANIFEST_TEMPLATE.md` | 运行清单模板 |
+
+## 预定义子代理（`agents/`，deploy 即装，无需单独初始化）
+
+| agent | 服务 | 职责 |
+|---|---|---|
+| `patent-industry-scout` | research | 行业动态/竞品/量产/工程痛点 → 机会空隙 |
+| `patent-academic-scout` | research | 论文/预印本/综述 → 技术基线与工程化空隙 |
+| `patent-landscape-scout` | research | 方向级专利密度侦察 → 拥挤度与白地 |
+| `patent-regulation-scout` | research | 标准/法规/监管 → 合规驱动的创新空间 |
+| `patent-consistency-auditor` | review | 术语/图号四方/交叉引用一致性 |
+| `patent-ipr-examiner` | review | 9 法定项 IPR 模拟审查 |
+| `patent-tech-reviewer` | review | 数据流闭合/可实现性/数据真实性 |
+| `patent-language-auditor` | review | AI 浓度/语气/专利文体（只查不改） |
+
+每个 scout 内置**防偷懒配额**（最低检索轮数/正文抓取数/证据数 + search_log 留痕 + dead_ends 必填）与**时效自校验**（证据必须带日期，按 18 个月窗口分级 fresh/valid/stale，stale 超标必须重搜）；主代理侧还有抽查防伪与时效审计两道闸。agent 缺失时 skill 自动降级为动态指令子代理 → solo 多轮，行为定义见各 SKILL.md 的能力梯度。
 
 ## CNIPA 国知局检索工具（patent-prior-art 主路径）
 

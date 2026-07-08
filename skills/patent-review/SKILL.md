@@ -25,22 +25,29 @@ description: |
 
 ## 执行（能力梯度，宿主中立）
 
-**梯度 1 —— 宿主支持并行子代理**（Claude Code 的 Task/Agent 机制、Codex/Hermes 的等价原生机制）：
+**梯度 1 —— 预定义审查子代理（首选）**：宿主的用户级 agent 目录已部署 4 个专属审查员（随家族 `deploy.ps1` 一并安装），并行派发、互不通信（保证发现独立性）。每个 agent 自带审查清单、证据纪律与输出契约：
 
-- 4 个视角各派 1 个子代理并行，互不通信（保证发现独立性）。
-- 子代理指令模板：
-  ```
-  角色：{视角名}。只戴这一顶帽子，只报本视角问题。
-  输入：{文件清单或正文}；证据：{facts_ledger / ipr_pack 路径（如有）}
-  输出纯 JSON：{ "findings": [ { "issue": "…", "severity": "high|medium|low",
-    "location": "part_XX/章节/图号", "symptom": "…", "evidence_or_reason": "…",
-    "fix_suggestion": "…" } ], "dimension_scores": { 本视角相关分项: 0-10 } }
-  要求：每个发现必须可定位（能指到具体部分/段落/图号）、可操作（fix_suggestion 具体）。
-  ```
+| agent | 视角 |
+|---|---|
+| `patent-consistency-auditor` | 一致性审计（术语/图号四方/交叉引用/结构） |
+| `patent-ipr-examiner` | IPR 模拟审查（9 法定项 + 形式审查） |
+| `patent-tech-reviewer` | 技术审查（数据流闭合/可实现性/数据真实性/实施例相关性） |
+| `patent-language-auditor` | 语言审查（AI 浓度/语气/专利文体，只查不改） |
 
-**梯度 2 —— 宿主无并行能力（自动降级）**：
+派发时给每个 agent：待审文件清单 + 对应证据路径（facts_ledger / ipr_pack / research_pack，按视角）。
 
-- 主模型顺序执行 4 轮独立审查，每轮开头明确「抛弃上一轮结论，以 {视角名} 角色重新通读原文」，输出同一 JSON 结构。
+**梯度 2 —— 预定义 agent 缺失**：用宿主通用子代理机制并行派发，指令按视角现场组装：
+
+```
+角色：{视角名}。只戴这一顶帽子，只报本视角问题。
+输入：{文件清单}；证据：{facts_ledger / ipr_pack 路径（如有）}
+输出纯 JSON：{ "findings": [ { "issue", "severity": "high|medium|low",
+  "location", "symptom", "evidence_or_reason", "fix_suggestion" } ],
+  "dimension_scores": {…} }
+要求：每个发现必须可定位、可操作。
+```
+
+**梯度 3 —— 宿主无并行能力**：主模型顺序执行 4 轮独立审查，每轮开头明确「抛弃上一轮结论，以 {视角名} 角色重新通读原文」，输出同一 JSON 结构。
 
 **汇总对抗（两条梯度相同）**：
 

@@ -36,34 +36,32 @@ description: |
 
 ## Step 4：并行调研（能力梯度，宿主中立）
 
-**梯度 1 —— 宿主支持并行子代理**（Claude Code 的 Task/Agent 机制、Codex/Hermes 的等价原生机制）：
+**梯度 1 —— 预定义 scout 子代理（首选）**：宿主的用户级 agent 目录已部署 4 个专属侦察员（随家族 `deploy.ps1` 一并安装，无需单独初始化）。**按正交维度分工并行派发**，每个 scout 收到：`domain_scope`、与其维度相关的研究问题、`freshness_window`（默认 18 个月；AI/自动驾驶等快演化领域沿用此值，用户可改）：
 
-- 按研究问题分组派发子代理，每个子代理负责 2-3 个相邻问题，3-4 个子代理并行。
-- 子代理指令模板：
-  ```
-  角色：专利调研员。研究问题：{RQx: 问题文本}
-  要求：
-  1. 用宿主内置网页搜索发现候选来源，中文优先、中英混合扩展；
-  2. 对支撑结论的关键页面必须抓取正文（fetch_before_claim），只有搜索摘要的来源标记「未验证候选」；
-  3. 每个问题至少产出 2 条证据：{evidence_id, url, excerpt(原文摘录≥50字符), source_tier(L1-L4), claim, date}；
-  4. 优先 L1-L2 来源（官方文档/标准/论文/专利库/正式产品文档）；
-  5. 返回纯 JSON：{ "findings": [证据数组], "insights": [对所负责问题的回答要点], "dead_ends": [搜过但无果的方向] }
-  ```
-- 子代理彼此独立，不共享中间结论（保证证据来源多样性）。
+| agent | 维度 | 为创新点提供 |
+|---|---|---|
+| `patent-industry-scout` | 行业动态/竞品/量产/工程痛点 | 机会空隙 |
+| `patent-academic-scout` | 论文/预印本/会议/综述 | 技术基线与前沿、工程化空隙 |
+| `patent-landscape-scout` | 方向级专利密度侦察 | 拥挤度与白地信号 |
+| `patent-regulation-scout` | 标准/法规/监管动向 | 合规驱动的创新空间 |
 
-**梯度 2 —— 宿主无并行能力（自动降级，不询问用户）**：
+每个 scout 自带**防偷懒配额**（≥4 轮检索、≥3 篇正文抓取、每问题 ≥2 证据、search_log/dead_ends 必填）与**时效自校验**（每条证据必须带日期并分级 fresh/valid/stale，stale 占比 >50% 必须重搜后才许返回），定义见各 agent 文件。
 
-- 主模型按问题分组顺序执行同样的调研轮次，每轮独立完成「搜索 → 抓取 → 记证据」，轮与轮之间不复用未经验证的推断。
+**梯度 2 —— 预定义 agent 缺失**（未跑 deploy 或非 Claude Code 宿主）：用宿主的通用子代理机制并行派发，指令按上表维度现场组装，配额与时效要求原样写入指令。
 
-两条梯度的证据格式与数量要求完全相同；门禁不关心用的哪条。
+**梯度 3 —— 宿主无并行能力**：主模型按四个维度顺序执行调研轮次，每轮独立完成「搜索 → 抓取 → 记证据」，配额与时效要求不变。
 
-## Step 5：汇总与收敛
+三条梯度的证据格式与数量要求完全相同；门禁不关心用的哪条。
 
-1. 合并去重各路证据，剔除 URL 不可访问或摘录不足 50 字符的条目；不足 8 条 → **换词重检**（同义词、场景词、英文对照词）补齐，而不是降低标准。
-2. 收敛 2-3 个技术主轴明确不同的候选方向（或固定题目下的创新切入轴），给出推荐方向与题名种子。
-3. 组装并落盘 `artifacts/research/phase_02_research_pack.json`（结构严格按契约文件）。
-4. 输出汇报层 Markdown（Research Scope / Channels / Evidence Table / Candidate Directions / Recommendation / Needs Patent Verification）。
-5. 跑门禁：`python <patent-skill-dir>/scripts/run_phase_gates.py --gate research --workspace . --manifest artifacts/run_manifest.md`，未过先自行补证据重跑，最多 3 轮后仍不过才向用户说明缺口。
+## Step 5：汇总、校验与收敛
+
+1. **抽查防伪**（防偷懒第四道闸）：每个 scout 的证据抽 1-2 条实际访问 URL，核对 excerpt 真实存在；抽查失败的 scout 其全部证据降级为未验证并重派。
+2. **时效审计**：统计合并后证据的日期分布；支撑「现状/前沿/竞品动向」的证据中 `stale`（> freshness_window）占比超 30% → 对应维度定向重搜。**超过 18 个月的资料只允许作为技术基线/历史背景使用，且必须显式标注**。
+3. 合并去重，剔除 URL 不可访问或摘录不足 50 字符的条目；不足 8 条 → **换词重检**（同义词、场景词、英文对照词）补齐，而不是降低标准。
+4. 收敛 2-3 个技术主轴明确不同的候选方向（或固定题目下的创新切入轴）——综合四维度信号：机会空隙（industry）× 工程化空隙（academic）× 白地（landscape）× 合规驱动（regulation），给出推荐方向与题名种子。
+5. 组装并落盘 `artifacts/research/phase_02_research_pack.json`（结构严格按契约文件，evidence 带 date 与 freshness）。
+6. 输出汇报层 Markdown（Research Scope / Channels / Evidence Table / Candidate Directions / Recommendation / Needs Patent Verification）。
+7. 跑门禁：`python <patent-skill-dir>/scripts/run_phase_gates.py --gate research --workspace . --manifest artifacts/run_manifest.md`，未过先自行补证据重跑，最多 3 轮后仍不过才向用户说明缺口。
 
 ## 禁止事项
 
