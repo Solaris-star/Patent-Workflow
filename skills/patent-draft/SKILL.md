@@ -97,6 +97,7 @@ description: |
 
 - 单块修改 > 100 字 → 分析对其余 part 的跨块影响（新技术特征？方案变更？图需更新？），输出联动修改建议清单待用户确认。
 - 每次修改前把当前版本备份到 `versions/`（保留近 5 版），支持回滚。
+- **受 review 委托代改时的留痕**（用户在审查汇报后点名委托的条目）：改前把**用户批准的条目**记为 `artifacts/revision/phase_10_edit_plan.json`（`doc_type: edit_plan`、`phase: phase_10`，每条含 edit_id / type / problem / change_instruction / risk_if_not_fixed / target.section，`acceptance_checks` 含复审项）；每条落实后记 `artifacts/revision/phase_10_structured_diff.json`（含 `linked_edit_id` 与修改前后摘要）；留痕完整性由 `--gate review` 校验。语言类条目的改写交 `patent-deslop` 执行。用户自己动手改的场景无此要求。
 
 ## 导出段
 

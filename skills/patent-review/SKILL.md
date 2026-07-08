@@ -1,10 +1,10 @@
 ---
 name: patent-review
 description: |
-  专利交底书多视角对抗式审查 + 结构性回改闭环。四个独立视角（一致性审计/IPR 模拟审查/
-  技术审查/语言审查）并行审查，汇总对抗后输出可打分可定位的审计与 IPR 报告，
-  并驱动 edit_plan → 修改 → structured_diff → 复审的回改闭环。
-  触发方式：/patent-review、「审查交底书」「一致性审计」「IPR 审查」「模拟审查」「回改」。
+  专利交底书多视角对抗式审查。四个独立视角（一致性审计/IPR 模拟审查/技术审查/语言审查）
+  并行审查，汇总对抗后输出可打分可定位的审计与 IPR 报告，向用户汇报问题清单与修改建议。
+  只审不改——修改由用户决策（自己改或委托代改），改完可触发复审。
+  触发方式：/patent-review、「审查交底书」「一致性审计」「IPR 审查」「模拟审查」「复审」。
   可独立审查外部现成交底书（docx/md），也被 patent 全流程编排调用。
 ---
 
@@ -55,36 +55,26 @@ description: |
 
 独立审查外部文件且无 ipr_pack 时：IPR 报告如实标注 `evidence_basis: 无对比文献，仅形式与逻辑审查`，新颖性/创造性结论降级为「待检索验证」，不得假装做过对比。
 
-## 回改闭环（审出问题时）
+## 审查后动作：汇报并停下，修改权在用户
 
-1. **edit_plan**：把 high/medium 的发现转为 `artifacts/revision/phase_10_edit_plan.json`：
-   ```json
-   {
-     "doc_type": "edit_plan",
-     "phase": "phase_10",
-     "edits": [{
-       "edit_id": "E1",
-       "type": "consistency|ipr_risk|technical|language",
-       "problem": "…",
-       "change_instruction": "具体改法…",
-       "risk_if_not_fixed": "high",
-       "target": {"section": "part_03_发明内容", "anchor": "技术方案第2段"}
-     }],
-     "acceptance_checks": ["rerun_phase_08_consistency_audit", "rerun_phase_09_ipr_review"]
-   }
-   ```
-2. **应用修改**：按 edit_plan 逐条修改对应 part（沿用 patent-draft 的版本备份与联动检测规则）；语言类问题调 `patent-deslop` 执行改写。
-3. **structured_diff**：每条 edit 落实后记录 `artifacts/revision/phase_10_structured_diff.json`（`doc_type: structured_diff`，每条含 `linked_edit_id` 对应 edit_id、修改前后摘要）。
-4. **复审**：复跑一致性审计与 IPR 审查的关键项（至少覆盖被修改部分与全部 high 项），结果写 `artifacts/revision/phase_10_post_fix_check_report.md`。
-5. **门禁**：
-   ```
-   python <patent-skill-dir>/scripts/run_phase_gates.py --gate review --workspace . --manifest artifacts/run_manifest.md
-   ```
-   通过且复审无新增 high 项 → 放行终稿导出；否则回到第 1 步（`revision_round` +1，超过 3 轮仍有 high 项时向用户说明分歧点请求决策）。
+落盘报告后**向用户汇报并结束本次审查**，不自动修改任何文件：
+
+1. 汇报内容：两个总分（含口径）、top_issues / top_risks 逐条（severity / location / symptom / fix_suggestion），按严重度排序——每条建议都要具体到「改哪里、怎么改」，让用户可以直接照着自己动手。
+2. 用户决策分支（如实列出，不催促）：
+   - **用户自己修改** → 改完说「复审」即进入复审模式；
+   - **委托代改** → 用户点名要改哪些条目后，修改动作走 `patent-draft` 的修改能力（版本备份 + 联动检测 + facts_ledger 同步），代改留痕规则见 patent-draft；
+   - **豁免放行** → 用户明确接受某些风险不改，记入 run manifest 的 `user_confirmations`。
+3. 全部视角零问题（无 high/medium）时如实说明可直接进入交付，无需停顿。
+
+## 复审模式（用户改完后触发）
+
+1. 复审范围：被修改的部分 + 上一轮全部 high 项（最小充分集，不必全文重审；用户要求全审除外）。
+2. 结果写 `artifacts/revision/phase_10_post_fix_check_report.md`，与上一轮报告对照给出「已解决 / 未解决 / 新引入」三类清单。
+3. 仍有 high 项 → 回到汇报等用户决策（`revision_round` +1）；无 high 项或用户豁免 → 全流程可进入终稿导出。
 
 ## 纪律
 
 1. 评分必须给口径（满分/阈值），发现必须可定位——「整体感觉不错」不是审查结论。
 2. 未做对比文献核验时禁止给出新颖性「通过」结论。
-3. 审查不顺手改稿——发现与修改分离，修改必须走 edit_plan 留痕。
-4. 全流程模式下回改完成后必须复审，不得「改完即过」。
+3. **只审不改**：本 skill 不修改任何交底书文件；发现问题的出口只有向用户汇报。
+4. 复审不得走过场——「已解决」结论必须基于重新读取修改后的文本，不得沿用记忆。

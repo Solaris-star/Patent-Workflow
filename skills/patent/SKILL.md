@@ -53,13 +53,13 @@ description: |
 | 3. 方向收敛 | 本 skill 主持 | 用户确认方向与题名（**第二处默认停顿，也是最后一处**） |
 | 4. 查新检索 | `patent-prior-art` | 候选池 + 证据包 → `--gate prior-art` 通过，背景包放行写作 |
 | 5. 分块撰写 | `patent-draft`（写作段） | 5 部分 md + facts_ledger + 附图三件套 → `--gate draft` 通过 |
-| 6. 审查回改 | `patent-review` | 审计/IPR 报告 + 回改闭环 → `--gate review` 通过（回改后必须复审） |
+| 6. 审查 | `patent-review` | 审计/IPR 报告落盘并**向用户汇报问题清单**（第三处停顿：有问题时等用户决策）→ 用户自改或委托代改（代改走 patent-draft，留痕过 `--gate review`）→ 复审至无 high 项或用户豁免 |
 | 7. 终稿交付 | `patent-draft`（导出段） | `<题名>技术交底书.docx` → `--gate deliver` 通过后方可宣告完成 |
 
 编排纪律：
 
 1. 门禁未过不得进入下一步；失败先自动整改重跑（如换词重检），不把失败甩给用户。
-2. 除两处默认停顿（开局首问、方向收敛）外**不得增加默认等待**；背景包就绪且风格工件可用即自动进入写作。用户显式要求逐块确认时才逐块停。
+2. 默认停顿只有三处：开局首问、方向收敛、**审查汇报后等用户决策修改**（审查零问题时第三处自动跳过）；除此**不得增加默认等待**——背景包就绪且风格工件可用即自动进入写作，用户显式要求逐块确认时才逐块停。修改权在用户：审查发现的问题由用户决定自改、委托代改或豁免（豁免记入 `user_confirmations`）。
 3. 每步完成后更新 run manifest：`current_step`、`last_passed_gate`、工件路径、`user_confirmations`（只记真实发生的用户决策）。
 4. 交接字段要求见 [references/HANDOFF_CONTRACT.md](references/HANDOFF_CONTRACT.md)。
 

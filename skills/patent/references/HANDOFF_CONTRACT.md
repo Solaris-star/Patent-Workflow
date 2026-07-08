@@ -44,8 +44,9 @@
 
 ## 审查 → 终稿导出
 
-- 一致性审计报告 + IPR 审查报告落盘（`artifacts/audit/`）
-- 若有回改：`edit_plan` + `structured_diff` 落盘且 `--gate review` 通过，且已复跑审计/IPR 关键项
+- 一致性审计报告 + IPR 审查报告落盘（`artifacts/audit/`），问题清单已向用户汇报
+- 最新一轮审查无 high 项，或用户豁免已记入 `user_confirmations`
+- 若发生委托代改：`edit_plan` + `structured_diff` 留痕齐全且 `--gate review` 通过，复审报告落盘
 - `final_title`（最终题名）
 
 ## 终稿导出 → 宣告完成

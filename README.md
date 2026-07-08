@@ -13,7 +13,7 @@ patent                总路由 + 全流程编排 + 门禁脚本 + run manifest
 ├── patent-prior-art      专利检索 + 验证 + 背景包/IPR 审查包
 ├── patent-style          模板解析 + 风格提取 + 初始化层缓存（一次初始化长期复用）
 ├── patent-draft          5 部分分块写作 + 附图三件套 + docx 出稿 + 交付检查
-├── patent-review         四视角对抗审查（一致性/IPR/技术/语言）+ 回改闭环
+├── patent-review         四视角对抗审查（一致性/IPR/技术/语言），只审不改、汇报后用户决策
 └── patent-deslop         专利文本去 AI 味（独立随叫随到）
 ```
 
@@ -47,7 +47,8 @@ patent                总路由 + 全流程编排 + 门禁脚本 + run manifest
 → 方向收敛（用户确认，第二处也是最后一处默认停顿）
 → patent-prior-art          --gate prior-art
 → patent-draft 写作段        --gate draft
-→ patent-review             --gate review（回改后必复审）
+→ patent-review             审查汇报 → 用户决策修改（自改/委托/豁免）→ 复审
+                            （委托代改留痕过 --gate review）
 → patent-draft 导出段        --gate deliver
 → 交付完成
 ```
