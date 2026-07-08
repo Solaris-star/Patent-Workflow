@@ -21,7 +21,7 @@ patent 家族所有联网调研类 skill（patent-research、patent-research-cli
 
 | 优先级 | provider | 探测方式 | 说明 |
 |---|---|---|---|
-| 1 | `smart-search` CLI | `Get-Command smart-search`（或 `which smart-search`）成功 | 多源聚合；中文检索 `zhipu-search`，精准域名 `exa-search`，广域 `search` |
+| 1 | `smart-search` CLI | `Get-Command smart-search`（或 `which smart-search`）成功 | 多源聚合，**用通用入口让 CLI 自行路由 provider**（`search` 广域 / `research` 一键深度）；不要硬编码具体 provider 子命令，实际可用 provider 以本机 `smart-search doctor` 为准 |
 | 2 | 搜索类 MCP 工具（exa / brave 等） | 会话工具列表中存在 | 语义发现增强 |
 | 3 | **宿主内置网页搜索** | 恒可用 | 兜底，零依赖（Claude Code：WebSearch；Codex / Hermes：各自内置浏览搜索能力） |
 
@@ -32,6 +32,8 @@ patent 家族所有联网调研类 skill（patent-research、patent-research-cli
 | 1 | `smart-search fetch` | 同上（CLI 存在） | Tavily→Jina→Firecrawl 抓取链 |
 | 2 | 浏览器类 MCP（playwright / browser-cdp） | 会话工具列表中存在 | 动态页、登录态页面专用 |
 | 3 | **宿主内置网页抓取** | 恒可用 | 兜底，零依赖（Claude Code：WebFetch；其他宿主用其等价抓取能力） |
+
+**对象特化例外**：当检索对象存在权威官方源时，具体 skill 可重排本层优先级——如 `patent-prior-art` 的专利对象检索以「浏览器自动化直上国知局官方检索系统」为主路径（检索+验证一体），上表通用优先级仅作其兜底。
 
 ## 能力探测规则
 

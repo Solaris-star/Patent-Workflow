@@ -26,20 +26,21 @@ smart-search doctor --format json
 
 ## Step 4：CLI 调研执行
 
-按问题类型选命令（全部 `--format json`，超时用 CLI 的 `--timeout` 而非 shell 层超时）：
+smart-search 是多 provider 自由搜索工具，**用通用入口让 CLI 自行做意图路由，不要硬编码具体 provider**（本机实际配置了哪些 provider 以 `doctor` 输出为准）。全部 `--format json`，超时用 CLI 的 `--timeout` 而非 shell 层超时：
 
 | 场景 | 命令 |
 |---|---|
 | 一键深度调研（首选） | `smart-search research "<主题+核心问题>" --budget deep --format json --evidence-dir artifacts/research/evidence` |
-| 中文/国内政策/行业动态 | `smart-search zhipu-search "<查询>" --count 8 --format json` |
-| 广域补充 | `smart-search search "<查询>" --extra-sources 2 --format json` |
-| 精准域名/论文/官方页 | `smart-search exa-search "<查询>" --num-results 5 --include-text --format json` |
+| 单点补查（CLI 自路由 provider） | `smart-search search "<查询>" --extra-sources 2 --format json` |
 | 关键页面正文抓取 | `smart-search fetch "<URL>" --format markdown` |
+| 查看某查询会被路由到哪个 provider（诊断用） | `smart-search route "<查询>" --format markdown` |
+
+仅当 CLI 自动路由效果不理想时，才按 `doctor` 显示的实际可用 provider 手动指定对应子命令定向重查。
 
 执行策略：
 
 1. 优先跑一次 `research --budget deep` 覆盖主线问题；其 `evidence` 结果直接作为证据候选。
-2. 对未覆盖的研究问题用 `zhipu-search` / `search` / `exa-search` 定向补查；关键结论来源必须 `fetch` 正文（fetch_before_claim）。
+2. 对未覆盖的研究问题用 `search` 定向补查；关键结论来源必须 `fetch` 正文（fetch_before_claim）。
 3. 超时处理：`error_type: network_error` 且含 `timed out` → 最多重试 3 次（`--timeout 180 --extra-sources 1`），全失败则该查询降级为 `exa-search` 发现 + `fetch` 直读，记 `channel_failures`。
 4. CLI 中途连续失败 2 次 → 剩余问题整体移交 `patent-research` 的调研轮次完成，已获证据保留。
 

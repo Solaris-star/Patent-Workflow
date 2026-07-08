@@ -12,7 +12,7 @@ description: |
 
 本 skill 是背景专利验证与 prior-art 审查包的唯一真源。核心原则：**未验证，不引用**。
 
-通道选择遵循 [../patent/references/search-protocol.md](../patent/references/search-protocol.md)：有 smart-search CLI 用 CLI（`zhipu-search` 中文检索 + `fetch` 验证优先），没有就用宿主内置搜索/抓取——门禁标准完全相同。
+**检索主路径：浏览器自动化直上国知局官方检索系统**（playwright MCP / browser-cdp）——官方源检索+验证一步到位，最简单有效。无浏览器通道时才落到搜索+抓取兜底（协议见 [../patent/references/search-protocol.md](../patent/references/search-protocol.md) 的对象特化例外）。门禁标准与走哪条通道无关。
 
 ## 验证来源优先级
 
@@ -24,15 +24,14 @@ description: |
 验证状态：`verified`（公开数据库验证）/ `document_verified`（用户 PDF 验证）/ `unverified`（禁止进入任何输出包）。
 证据粒度：`claims_verified` / `abstract_only` / `mixed`（历史旧值 `abstract` 一律归一化为 `abstract_only`）。
 
-### 验证源 × 通道可达性（实际执行指引）
+### 检索通道优先级
 
-| 验证源 | 页面性质 | 可达通道 |
+| 优先级 | 通道 | 说明 |
 |---|---|---|
-| Google Patents（`patents.google.com/patent/CN…`） | 静态，可直接抓取 | 任意验证层通道均可，含裸机内置抓取兜底——**无浏览器通道时的主力验证源**，CN 专利数据齐全（号码/日期/摘要/claims） |
-| CNIPA 官方检索系统 | 动态页 + 可能需验证码 | 仅浏览器类 MCP（playwright / browser-cdp）可达；**无浏览器通道时不要反复尝试直接抓取**，改用 Google Patents 验证并如实记录 `verificationSource: google_patents` |
-| 其他专利平台摘要页 | 多为静态 | fetch 类通道可达，作补充核验 |
+| **1（主路径）** | 浏览器自动化上 **CNIPA 国知局检索系统** | playwright MCP 或 browser-cdp 打开国知局专利检索入口，输入检索式 → 翻页收集命中 → 进详情页取全字段。官方源，**检索即验证**（`verificationSource: cnipa`），无需二次核验 |
+| 2（兜底） | 搜索发现 + Google Patents 验证 | 无浏览器通道时：用 smart-search 通用入口或宿主内置搜索发现候选（加 `site:patents.google.com` 限定词提高命中率），再抓取 `patents.google.com/patent/CN…` 静态页逐条核验（`verificationSource: google_patents`） |
 
-发现层同理：检索式优先交给可用的中文检索通道（smart-search 的 `zhipu-search` 对 CN 专利覆盖好）；裸机时用内置搜索加 `site:patents.google.com` 等限定词提高专利命中率。
+主路径操作要点：检索系统需要加载 JS，等待结果表格渲染完成再取数；遇验证码/登录墙时向用户说明并请其在浏览器完成一次人机验证（browser-cdp 复用登录态可基本免此步骤），不可跳过官方源静默降级——确需降级到兜底通道时在 `search_failures` 记录原因。
 
 ## 检索工作流
 
@@ -56,11 +55,16 @@ description: |
 
 ### Step 3：检索与扩池
 
-对每条检索式执行检索，把命中专利汇入候选池。**候选不足或相关性弱时自动换词重检**（同义词、场景词、申请人、分类号辅助词、近义应用域），不得拿低相关专利凑数，不得把新闻/博客/产品页当专利候选——非专利页面只能作外围证据（`is_auxiliary: true`）辅助扩词与背景判断。
+按「检索通道优先级」执行：主路径用浏览器在国知局检索系统逐条跑检索式，翻页收集命中，进详情页取 title / 申请号 / 公开号 / 日期 / 摘要 / 申请人；兜底路径用搜索发现候选后抓 Google Patents 详情页取同等字段。
 
-### Step 4：逐条验证
+**候选不足或相关性弱时自动换词重检**（同义词、场景词、申请人、分类号辅助词、近义应用域），不得拿低相关专利凑数，不得把新闻/博客/产品页当专利候选——非专利页面只能作外围证据（`is_auxiliary: true`）辅助扩词与背景判断。
 
-每条拟输出专利至少完成一种有效验证（抓取专利库详情页确认号码、标题、日期一致），记录 `verificationSource` 与 `sourceUrl`。虚构专利号 = 最高违规。
+### Step 4：验证核对
+
+- 主路径（国知局）：详情页字段即官方验证，标 `verificationSource: cnipa`，附详情页 `sourceUrl`。
+- 兜底路径：每条拟输出专利抓取 Google Patents 详情页核对号码、标题、日期一致后标 `verificationSource: google_patents`。
+
+虚构专利号 = 最高违规。
 
 ### Step 5：落盘两个门禁工件
 
