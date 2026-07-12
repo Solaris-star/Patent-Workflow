@@ -18,6 +18,12 @@ import re
 import sys
 from pathlib import Path
 
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
+
 try:
     from docx import Document
     from docx.shared import Pt, Inches, Cm, RGBColor
@@ -31,8 +37,11 @@ except ImportError:
 def generate_docx(md_path: str, docx_path: str) -> bool:
     md_file = Path(md_path)
     if not md_file.exists():
-        print(f"ERROR: {md_path} not found")
+        print(f"ERROR: {md_path} not found", file=sys.stderr)
         return False
+
+    images_embedded = 0
+    images_missing: list[str] = []
 
     doc = Document()
 
@@ -99,10 +108,15 @@ def generate_docx(md_path: str, docx_path: str) -> bool:
                     caption = doc.add_paragraph(f"图：{alt_text}")
                     caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     _set_run_font(caption.runs[0], 'SimSun', Pt(10))
+                    images_embedded += 1
                 except Exception as e:
                     doc.add_paragraph(f"[插图：{alt_text} - 加载失败: {e}]")
+                    images_missing.append(f"{img_rel_path} (load failed: {e})")
+                    print(f"WARNING: image load failed: {img_rel_path}: {e}", file=sys.stderr)
             else:
                 doc.add_paragraph(f"[插图：{alt_text} - 文件未找到: {img_rel_path}]")
+                images_missing.append(f"{img_rel_path} (not found)")
+                print(f"WARNING: image not found: {img_rel_path}", file=sys.stderr)
             i += 1
             continue
 
@@ -161,8 +175,15 @@ def generate_docx(md_path: str, docx_path: str) -> bool:
 
         i = j
 
+    out = Path(docx_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
     doc.save(docx_path)
-    return Path(docx_path).exists()
+    # machine-readable tail line — a half-embedded delivery must be visible,
+    # not discovered later inside the docx as a placeholder paragraph
+    print(f"IMAGES_EMBEDDED: {images_embedded}, IMAGES_MISSING: {len(images_missing)}")
+    if images_missing:
+        print("WARNING: missing/failed images: " + "; ".join(images_missing), file=sys.stderr)
+    return out.exists()
 
 
 def _set_heading_font(paragraph, font_name: str, size: Pt):

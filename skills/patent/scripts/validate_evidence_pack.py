@@ -24,6 +24,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
+
 
 def _is_http_url(u: str) -> bool:
     try:
@@ -98,15 +104,23 @@ def main() -> int:
     _require(bool(pool_path), "patent_candidate_pool_path is required", errors)
 
     final_patents = _as_list(data.get("final_relevant_patents"))
-    final_count = data.get("search_trace", {}).get("final_relevant_patent_count")
+    search_trace = _as_dict(data.get("search_trace"))
+    final_count = search_trace.get("final_relevant_patent_count")
 
-    # Prefer explicit count in search_trace if present, else derive from array.
-    if isinstance(final_count, int):
+    # The measured array is authoritative; a self-reported count that disagrees
+    # with it is an error (self-report 5 with 3 actual items must not pass).
+    if final_patents:
+        _require(len(final_patents) >= args.min_final, f"final_relevant_patents length < {args.min_final}", errors)
+        if isinstance(final_count, int) and final_count != len(final_patents):
+            errors.append(
+                f"search_trace.final_relevant_patent_count ({final_count}) != "
+                f"final_relevant_patents length ({len(final_patents)})"
+            )
+    elif isinstance(final_count, int):
         _require(final_count >= args.min_final, f"final_relevant_patent_count < {args.min_final}", errors)
     else:
-        _require(len(final_patents) >= args.min_final, f"final_relevant_patents length < {args.min_final}", errors)
+        errors.append(f"final_relevant_patents length < {args.min_final}")
 
-    search_trace = _as_dict(data.get("search_trace"))
     queries = _as_list(search_trace.get("patent_search_queries"))
     _require(len(queries) >= 1, "search_trace.patent_search_queries must be non-empty", errors)
 

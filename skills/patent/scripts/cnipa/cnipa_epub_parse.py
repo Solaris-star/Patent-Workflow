@@ -255,6 +255,6 @@ if __name__ == "__main__":
         print("用法: python cnipa_epub_parse.py <结果页.html>", file=sys.stderr)
         sys.exit(2)
     p = Path(sys.argv[1]).expanduser().resolve()
-    html = p.read_text(encoding="utf-8")
+    html = p.read_text(encoding="utf-8", errors="replace")
     hits = parse_search_result_html(html)
     print(json.dumps(hits_to_jsonable(hits), ensure_ascii=False, indent=2))

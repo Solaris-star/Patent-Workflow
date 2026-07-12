@@ -19,9 +19,16 @@ Exit codes:
 
 import argparse
 import json
+import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
 
 
 def _check(checks: list[dict], name: str, cond: bool, details_ok: str = "", details_fail: str = ""):

@@ -23,6 +23,7 @@ import html
 import json
 import re
 import sys
+import unicodedata
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -95,27 +96,56 @@ def _context(text: str, start: int, end: int, span: int = 40) -> str:
     return text[lo:hi].replace("\n", " ")
 
 
+def _fold(s: str, case_sensitive: bool) -> str:
+    # NFKC: full-width/half-width and compatibility forms compare equal
+    s = unicodedata.normalize("NFKC", s)
+    return s if case_sensitive else s.casefold()
+
+
+def _prepare_entries(entries: list[dict], errors: list[str]) -> list[dict]:
+    """Precompile regex entries; an uncompilable or empty pattern is an ERROR —
+    a map entry that can never match is false security, not a no-op."""
+    prepared = []
+    for e in entries:
+        if (e.get("match") or "literal") == "regex":
+            pat = e.get("pattern") or ""
+            if not pat:
+                errors.append(f"map entry {e.get('id')}: match=regex but pattern is empty")
+                continue
+            try:
+                e = {**e, "_compiled": re.compile(pat)}
+            except re.error as ex:
+                errors.append(f"map entry {e.get('id')}: invalid regex: {ex}")
+                continue
+        prepared.append(e)
+    return prepared
+
+
 def _match_entry(entry: dict, label: str, text: str) -> list[dict]:
     hits = []
-    action_terms = [t for t in [entry.get("term"), *(entry.get("aliases") or [])] if t]
-    if (entry.get("match") or "literal") == "regex":
-        pat = entry.get("pattern") or ""
-        if pat:
-            for m in re.finditer(pat, text):
-                hits.append({"file": label, "entry_id": entry.get("id"), "term": m.group(0),
-                             "context": _context(text, m.start(), m.end())})
+    compiled = entry.get("_compiled")
+    if compiled is not None:
+        for m in compiled.finditer(text):
+            hits.append({"file": label, "entry_id": entry.get("id"), "term": m.group(0),
+                         "context": _context(text, m.start(), m.end())})
         return hits
-    haystack = text if entry.get("case_sensitive") else text.casefold()
+    cs = bool(entry.get("case_sensitive"))
+    action_terms = [t for t in [entry.get("term"), *(entry.get("aliases") or [])] if t]
+    haystack = _fold(text, cs)
     for term in action_terms:
-        needle = term if entry.get("case_sensitive") else term.casefold()
+        needle = _fold(term, cs)
+        if not needle:
+            continue
         idx = 0
         while True:
             pos = haystack.find(needle, idx)
             if pos < 0:
                 break
+            # context is taken from the folded text: NFKC/casefold can shift
+            # offsets relative to the original, folded offsets are always valid
             hits.append({"file": label, "entry_id": entry.get("id"), "term": term,
-                         "context": _context(text, pos, pos + len(term))})
-            idx = pos + len(term)
+                         "context": _context(haystack, pos, pos + len(needle))})
+            idx = pos + len(needle)
     return hits
 
 
@@ -159,6 +189,8 @@ def main() -> int:
                         if p.is_file() and (p.suffix.lower() in TEXT_EXTS or p.suffix.lower() == ".docx")]
     if not targets and not errors:
         errors.append("nothing to scan: provide --files or --scan-dir")
+
+    entries = _prepare_entries(entries, errors)
 
     map_hits: list[dict] = []
     heuristic_hits: list[dict] = []

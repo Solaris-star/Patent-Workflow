@@ -122,7 +122,11 @@ def _direction_status(d: dict, now: datetime) -> str:
     if d.get("status") in ("picked", "retired"):
         return d["status"]
     anchor = d.get("revalidated_at") or d.get("harvested_at")
-    valid_days = int(d.get("valid_days") or DEFAULT_VALID_DAYS)
+    try:
+        valid_days = int(d.get("valid_days") or DEFAULT_VALID_DAYS)
+    except (TypeError, ValueError):
+        # one poisoned entry must not brick list/pick for the whole pool
+        valid_days = DEFAULT_VALID_DAYS
     if anchor:
         try:
             base = datetime.fromisoformat(str(anchor).replace("Z", "+00:00"))
@@ -166,8 +170,16 @@ def _vault_ready(root: Path) -> bool:
         return False
 
 
+def _raw_fold(t: str) -> str:
+    return _WS.sub("", t or "").casefold()
+
+
 def cmd_check_title(root: Path, title: str) -> int:
     norm = _normalize_title(title)
+    # all-boilerplate titles normalize to "" and would be mutually invisible;
+    # fall back to raw (whitespace-stripped) comparison so the screen stays alive
+    normalized_empty = not norm
+    self_cmp = norm or _raw_fold(title)
     cases = _load(_cases_path(root), EMPTY_CASES)["cases"]
     titles = _load(_titles_path(root), EMPTY_TITLES)["titles"]
     pool = _load(_pool_path(root), EMPTY_POOL)["directions"]
@@ -181,7 +193,8 @@ def cmd_check_title(root: Path, title: str) -> int:
         for it in items:
             other = it.get(title_key) or ""
             other_norm = it.get("title_normalized") or _normalize_title(other)
-            score = _jaccard(norm, other_norm)
+            other_cmp = other_norm if (other_norm and not normalized_empty) else _raw_fold(other)
+            score = _jaccard(self_cmp, other_cmp)
             if score >= JACCARD_THRESHOLD:
                 candidates.append({
                     "source": source,
@@ -191,13 +204,16 @@ def cmd_check_title(root: Path, title: str) -> int:
                     "status": it.get("status", ""),
                 })
     candidates.sort(key=lambda c: -c["similarity"])
-    return _ok({
+    result = {
         "title": title,
         "normalized": norm,
         "threshold": JACCARD_THRESHOLD,
         "collision_candidates": candidates,
         "note": "coarse screen only — the model MUST do semantic adjudication on candidates",
-    })
+    }
+    if normalized_empty:
+        result["warning"] = "title normalizes to empty (all boilerplate) — compared on raw title instead"
+    return _ok(result)
 
 
 def cmd_add_direction(root: Path, stdin_text: str) -> int:
@@ -212,6 +228,14 @@ def cmd_add_direction(root: Path, stdin_text: str) -> int:
     if d.get("origin") == "mine" and not d.get("origin_sensitive_map_path"):
         return _fail("mine-origin direction requires origin_sensitive_map_path "
                      "(absolute path to the source project's confirmed sensitive_map.json)")
+    if d.get("valid_days") is not None:
+        try:
+            vd = int(d["valid_days"])
+            if vd <= 0:
+                raise ValueError
+            d["valid_days"] = vd
+        except (TypeError, ValueError):
+            return _fail(f"valid_days must be a positive integer, got: {d['valid_days']!r}")
     pool = _load(_pool_path(root), EMPTY_POOL)
     d.setdefault("direction_id", f"DIR-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:4]}")
     d.setdefault("harvested_at", _now())
@@ -301,6 +325,8 @@ def cmd_list(root: Path, pool_flag: bool, status: str | None) -> int:
 
 def cmd_register_case(root: Path, stdin_text: str) -> int:
     c = json.loads(stdin_text)
+    if not isinstance(c, dict):
+        return _fail("case payload must be a JSON object")
     if not c.get("title"):
         return _fail("case.title is required")
     cases = _load(_cases_path(root), EMPTY_CASES)
@@ -337,7 +363,12 @@ def cmd_update_case(root: Path, case_id: str, status: str | None, event: str | N
 
 def cmd_import_titles(root: Path, stdin_text: str) -> int:
     data = json.loads(stdin_text)
+    if not isinstance(data, dict):
+        return _fail("payload must be a JSON object: {\"titles\": [...]}")
     incoming = data.get("titles") or []
+    if not isinstance(incoming, list):
+        # a bare string would iterate per character and poison titles_used
+        return _fail("titles must be a JSON array of strings/objects")
     titles = _load(_titles_path(root), EMPTY_TITLES)
     existing_norm = {t.get("title_normalized") for t in titles["titles"]}
     added = 0
@@ -389,7 +420,8 @@ def main() -> int:
     def _payload() -> str:
         jf = getattr(args, "json_file", None)
         if jf:
-            return Path(jf).read_text(encoding="utf-8")
+            # utf-8-sig: transparently accept files saved with a BOM
+            return Path(jf).read_text(encoding="utf-8-sig")
         return sys.stdin.read()
 
     try:

@@ -33,6 +33,12 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
+
 SCRIPTS_DIR = Path(__file__).resolve().parent
 
 JSON_BEGIN = "<!-- GATE_RESULTS_JSON_BEGIN -->"

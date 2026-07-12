@@ -21,8 +21,15 @@ import argparse
 import json
 import os
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
 
 
 def _utc_now() -> str:
@@ -30,12 +37,13 @@ def _utc_now() -> str:
 
 
 def _extract_output_dir(md: str) -> str | None:
-    # Match line: - `output_dir`: <value>
-    m = re.search(r"^\s*-\s*`output_dir`\s*:\s*(.+?)\s*$", md, flags=re.MULTILINE)
+    # Match line: - `output_dir`: <value>   # optional template comment
+    # Comment stripping mirrors run_phase_gates._manifest_field so the two
+    # manifest parsers agree ('#' inside a path survives; ' # …' is a comment).
+    m = re.search(r"^\s*-\s*`output_dir`\s*:\s*(.*)$", md, flags=re.MULTILINE)
     if not m:
         return None
-    v = m.group(1).strip()
-    # treat placeholders/comments as empty
+    v = re.sub(r"(?:^|\s+)#.*$", "", m.group(1)).strip().strip("`").strip()
     if v in {"", "<output_dir>", "TBD", "TODO"}:
         return ""
     return v
