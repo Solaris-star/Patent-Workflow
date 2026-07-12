@@ -47,11 +47,6 @@ def _docx_has_media(docx_path: Path) -> bool:
         return False
 
 
-def _resolve_artifact_path(rel_or_abs: str, base_dir: Path) -> Path:
-    p = Path(rel_or_abs)
-    return p if p.is_absolute() else (base_dir / p)
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description="Delivery health gate (phase 11)")
     ap.add_argument("--deliver-dir", required=True, help="Delivery directory (root containing final docx and figures dir)")
@@ -117,6 +112,18 @@ def main() -> int:
             ledger = None
             _check(checks, "facts_ledger JSON parses", False, details_fail=str(e))
 
+    # Figure artifacts are checked in the DELIVER dir — the delivery contract puts
+    # 附图/ in the delivery root; a figure that exists only in the workspace means
+    # the export step forgot to copy it (previously a silent pass).
+    def _figure_missing(rel_or_abs: str) -> str | None:
+        p = Path(rel_or_abs)
+        if p.is_absolute():
+            return None if p.exists() else str(p)
+        if (deliver_dir / p).exists():
+            return None
+        hint = " (exists in workspace but not copied to deliver dir)" if (base_dir / p).exists() else ""
+        return f"{deliver_dir / p}{hint}"
+
     figure_ok = True
     if isinstance(ledger, dict):
         figs = ledger.get("figure_registry") or []
@@ -129,28 +136,23 @@ def main() -> int:
                     figure_ok = False
                     continue
                 art = fig.get("artifacts") or {}
-                img = art.get("image") or ""
-                mmd = art.get("mmd") or ""
+                for key in ("image", "mmd"):
+                    rel = art.get(key) or ""
+                    miss = _figure_missing(rel) if rel else f"figure[{idx}].{key}_missing"
+                    if miss:
+                        figure_ok = False
+                        missing.append(miss)
                 editable = art.get("editable") or []
-                img_p = _resolve_artifact_path(img, base_dir)
-                mmd_p = _resolve_artifact_path(mmd, base_dir)
-                editable_ok = False
-                for p in editable if isinstance(editable, list) else []:
-                    if isinstance(p, str) and p.strip() and _resolve_artifact_path(p.strip(), base_dir).exists():
-                        editable_ok = True
-                        break
-
-                if not img_p.exists():
-                    figure_ok = False
-                    missing.append(str(img_p))
-                if not mmd_p.exists():
-                    figure_ok = False
-                    missing.append(str(mmd_p))
+                editable_ok = any(
+                    isinstance(p, str) and p.strip() and _figure_missing(p.strip()) is None
+                    for p in (editable if isinstance(editable, list) else [])
+                )
                 if not editable_ok:
                     figure_ok = False
                     missing.append(f"figure[{idx}].editable_missing")
 
-            _check(checks, "figure artifacts complete (image+mmd+editable)", figure_ok, details_ok="ok", details_fail="missing figure artifacts")
+            _check(checks, "figure artifacts complete in deliver dir (image+mmd+editable)", figure_ok,
+                   details_ok="ok", details_fail="missing figure artifacts in deliver dir")
     else:
         figure_ok = False
 

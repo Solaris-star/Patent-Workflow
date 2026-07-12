@@ -156,7 +156,9 @@ def _artifact_paths(ws: Path) -> dict:
 
 
 def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | None, manifest: str | None,
-              sensitive_map: str | None = None) -> list[dict]:
+              sensitive_map: str | None = None) -> tuple[list[dict], str | None]:
+    """Return (runs, skip_reason). skip_reason is set when the gate has nothing
+    to validate (review without revision artifacts, deliver without args)."""
     ap = _artifact_paths(ws)
     runs: list[dict] = []
 
@@ -207,6 +209,13 @@ def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | 
         )
 
     elif gate == "review":
+        # Revision artifacts only exist when the user commissioned fixes; a
+        # zero-issue or self-edited run has neither file — that is a SKIP, not
+        # a failure (otherwise `--gate all` could never go green on the default
+        # path). One file without the other is still validated → fails loudly.
+        if not ap["edit_plan"].exists() and not ap["structured_diff"].exists():
+            return [], ("no revision artifacts (edit_plan/structured_diff absent) — nothing to validate; "
+                        "commissioned-edit runs must write both before this gate")
         runs.append(_run(["python", str(SCRIPTS_DIR / "validate_edit_plan.py"), str(ap["edit_plan"])]))
         runs.append(
             _run(
@@ -222,7 +231,7 @@ def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | 
 
     elif gate == "deliver":
         if not deliver_dir or not patent_title:
-            return []
+            return [], "missing --deliver-dir/--patent-title"
         if manifest:
             runs.append(_run(["python", str(SCRIPTS_DIR / "assert_output_dir_in_manifest.py"), manifest]))
         # Sanitize gate: run when --sensitive-map given; if the manifest declares a
@@ -273,7 +282,7 @@ def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | 
             )
         )
 
-    return runs
+    return runs, None
 
 
 def main() -> int:
@@ -301,11 +310,17 @@ def main() -> int:
     gate_results: list[dict] = []
 
     for g in gates:
-        runs = _run_gate(g, ws, args.deliver_dir, args.patent_title, args.manifest, args.sensitive_map)
+        runs, skip_reason = _run_gate(g, ws, args.deliver_dir, args.patent_title, args.manifest, args.sensitive_map)
 
-        if g == "deliver" and not runs and args.gate == "all":
-            gate_results.append({"gate": g, "skipped": True, "reason": "missing --deliver-dir/--patent-title"})
-            continue
+        if skip_reason:
+            if g == "deliver" and args.gate != "all":
+                # explicitly invoking the deliver gate without its required args
+                # must fail with a readable reason, never silently skip
+                runs = [_policy_fail("deliver-gate-missing-args",
+                                     f"{skip_reason} — deliver gate requires both arguments")]
+            else:
+                gate_results.append({"gate": g, "skipped": True, "reason": skip_reason})
+                continue
 
         g_passed = all(r.get("passed") for r in runs) if runs else False
         gate_results.append({"gate": g, "skipped": False, "passed": g_passed, "runs": runs})
@@ -314,7 +329,11 @@ def main() -> int:
         if not g_passed:
             break  # fail-fast
 
-    passed = all(r.get("passed") for r in all_runs) if all_runs else False
+    # vacuously true only when every selected gate legitimately skipped
+    # (e.g. direct `--gate review` on a run with no commissioned edits)
+    passed = all(r.get("passed") for r in all_runs)
+    if not all_runs and not any(gr.get("skipped") for gr in gate_results):
+        passed = False
 
     summary = {
         "runner": "run_phase_gates.py",

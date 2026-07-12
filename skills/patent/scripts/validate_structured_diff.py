@@ -110,6 +110,17 @@ def main() -> int:
         if kind in ("add", "replace", "move"):
             _require(bool(after.strip()), f"diff_items[{i}].after_excerpt required for {kind}", errors)
 
+    # plan→diff coverage: every approved edit must have at least one diff item,
+    # otherwise "每条落实后记" is an unaudited promise (approve 10, record 1 → pass)
+    uncovered: list[str] = []
+    if edit_ids:
+        linked_ids = {(it.get("linked_edit_id") or "").strip()
+                      for it in items if isinstance(it, dict)}
+        uncovered = sorted(edit_ids - linked_ids)
+        _require(not uncovered,
+                 f"edit plan entries with no diff item (plan→diff coverage): {', '.join(uncovered)}",
+                 errors)
+
     summary = {
         "validator": "validate_structured_diff.py",
         "generatedAt": now.isoformat(),
@@ -117,6 +128,7 @@ def main() -> int:
         "counts": {
             "diff_items": len(items),
             "edit_plan_linked_ids": len(edit_ids),
+            "uncovered_edit_ids": len(uncovered),
         },
         "passed": len(errors) == 0,
         "errors": errors,
