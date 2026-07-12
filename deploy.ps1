@@ -32,9 +32,14 @@ foreach ($s in $family) {
 }
 
 # 预定义子代理（调研 scout ×4 + 审查视角 ×4）→ 用户级 agents 目录
+# 范围镜像：先清目标端 patent-*.md 再复制——仓库删掉的 agent 不得残留生效；
+# agents 目录还住着其他家族的 agent，不能整目录 /MIR
 $agentCount = 0
 if (Test-Path $repoAgents) {
-  if (-not $DryRun) { New-Item -ItemType Directory -Force $agentRoot | Out-Null }
+  if (-not $DryRun) {
+    New-Item -ItemType Directory -Force $agentRoot | Out-Null
+    Get-ChildItem $agentRoot -Filter 'patent-*.md' -ErrorAction SilentlyContinue | Remove-Item -Force
+  }
   foreach ($f in Get-ChildItem $repoAgents -Filter 'patent-*.md') {
     if ($DryRun) { Write-Host "[dry-run] $($f.FullName) -> $agentRoot"; continue }
     Copy-Item $f.FullName $agentRoot -Force

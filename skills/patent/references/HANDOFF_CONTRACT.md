@@ -43,8 +43,8 @@
 ## 查新 → 写作（patent-draft）
 
 - `phase_04_patent_candidate_pool.json` + `phase_04_evidence_pack.json` 已落盘且 `--gate prior-art` 通过
-- `background_pack` 就绪（≥ 2 篇已验证背景专利 + `closest_prior_art` + `major_differences`）
-- `ipr_pack` 状态（就绪 / 降级原因）——只影响能否进 IPR 审查，不阻塞写作
+- `background_pack` 就绪并落盘 `artifacts/prior_art/phase_05_background_pack.json`（≥ 2 篇已验证背景专利 + `closest_prior_art` + `major_differences`）
+- `ipr_pack` 状态（就绪 / 降级原因）——就绪时落盘 `artifacts/prior_art/phase_05_ipr_pack.json`；只影响能否进 IPR 审查，不阻塞写作
 
 ## 写作 → 审查（patent-review）
 

@@ -50,7 +50,7 @@ patent                总路由 + 全流程编排 + 门禁脚本 + run manifest
 | `patent-tech-reviewer` | review | 数据流闭合/可实现性/数据真实性 |
 | `patent-language-auditor` | review | AI 浓度/语气/专利文体（只查不改） |
 
-每个 scout 内置**防偷懒配额**（最低检索轮数/正文抓取数/证据数 + search_log 留痕 + dead_ends 必填）与**时效自校验**（证据必须带日期，按 18 个月窗口分级 fresh/valid/stale，stale 超标必须重搜）；主代理侧还有抽查防伪与时效审计两道闸。agent 缺失时 skill 自动降级为动态指令子代理 → solo 多轮，行为定义见各 SKILL.md 的能力梯度。
+每个 scout 内置**防偷懒配额**（最低检索轮数/正文抓取数/证据数 + search_log 留痕 + dead_ends 必填，各 agent 文件为配额真源）与**时效自校验**（证据必须带日期，按 freshness_window——默认 18 个月——分级 fresh/valid/stale，stale 超标必须重搜）；主代理侧还有抽查防伪与时效审计两道闸。agent 缺失时 skill 自动降级为动态指令子代理 → solo 多轮，行为定义见各 SKILL.md 的能力梯度。
 
 ## CNIPA 国知局检索工具（patent-prior-art 主路径）
 
@@ -123,7 +123,7 @@ pwsh -File deploy.ps1 -DryRun  # 预览
 
 | 目录 | 性质 |
 |---|---|
-| `skills/` | 活资产：8 个 skill 源码（唯一真源） |
+| `skills/` | 活资产：12 个 skill 源码（唯一真源） |
 | `_legacy/` | v5 orchestrator/executor 架构归档（14 个提交的演化线，完整历史在 git log） |
 | `_backup_20260708/` | 重构前本机 6 个旧 skill 的快照备份 |
 

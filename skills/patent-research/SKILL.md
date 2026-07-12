@@ -45,7 +45,7 @@ description: |
 | `patent-landscape-scout` | 方向级专利密度侦察 | 拥挤度与白地信号 |
 | `patent-regulation-scout` | 标准/法规/监管动向 | 合规驱动的创新空间 |
 
-每个 scout 自带**防偷懒配额**（≥4 轮检索、≥3 篇正文抓取、每问题 ≥2 证据、search_log/dead_ends 必填）与**时效自校验**（每条证据必须带日期并分级 fresh/valid/stale，stale 占比 >50% 必须重搜后才许返回），定义见各 agent 文件。
+配额定义以各 agent 文件为真源：三个信息型 scout（industry/academic/regulation）自带**防偷懒配额**（≥4 轮检索、≥3 篇正文抓取、每问题 ≥2 证据、search_log/dead_ends 必填）与**时效自校验**（每条证据必须带日期并分级 fresh/valid/stale，stale 占比 >50% 必须重搜后才许返回）；landscape 是方向级密度侦察，按其自身配额执行（每方向 ≥2 组检索词、≥3 次实际检索、每方向 2-3 条锚点详情，锚点证据同样必须带日期分级）。
 
 **梯度 2 —— 预定义 agent 缺失**（未跑 deploy 或非 Claude Code 宿主）：用宿主的通用子代理机制并行派发，指令按上表维度现场组装，配额与时效要求原样写入指令。
 
@@ -56,7 +56,7 @@ description: |
 ## Step 5：汇总、校验与收敛
 
 1. **抽查防伪**（防偷懒第四道闸）：每个 scout 的证据抽 1-2 条实际访问 URL，核对 excerpt 真实存在；抽查失败的 scout 其全部证据降级为未验证并重派。
-2. **时效审计**：统计合并后证据的日期分布；支撑「现状/前沿/竞品动向」的证据中 `stale`（> freshness_window）占比超 30% → 对应维度定向重搜。**超过 18 个月的资料只允许作为技术基线/历史背景使用，且必须显式标注**。
+2. **时效审计**：统计合并后证据的日期分布；支撑「现状/前沿/竞品动向」的证据中 `stale`（> freshness_window）占比超 30% → 对应维度定向重搜。**超过 freshness_window 的资料只允许作为技术基线/历史背景使用，且必须显式标注**。
 3. 合并去重，剔除 URL 不可访问或摘录不足 50 字符的条目；不足 8 条 → **换词重检**（同义词、场景词、英文对照词）补齐，而不是降低标准。
 4. 收敛 2-3 个技术主轴明确不同的候选方向（或固定题目下的创新切入轴）——综合四维度信号：机会空隙（industry）× 工程化空隙（academic）× 白地（landscape）× 合规驱动（regulation），给出推荐方向与题名种子。
 5. 组装并落盘 `artifacts/research/phase_02_research_pack.json`（结构严格按契约文件，evidence 带 date 与 freshness）。

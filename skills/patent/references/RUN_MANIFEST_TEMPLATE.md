@@ -49,6 +49,8 @@
 - `phase_04_patent_candidate_pool_path`: `artifacts/prior_art/phase_04_patent_candidate_pool.json`
 - `phase_04_evidence_pack_path`: `artifacts/prior_art/phase_04_evidence_pack.json`
 - `relevance_terms_path`: `artifacts/prior_art/relevance_terms.json`
+- `phase_05_background_pack_path`: `artifacts/prior_art/phase_05_background_pack.json`
+- `phase_05_ipr_pack_path`: `artifacts/prior_art/phase_05_ipr_pack.json`
 - `facts_ledger_path`: `artifacts/draft/facts_ledger.json`
 - `consistency_report_path`: `artifacts/audit/phase_08_consistency_audit_report.md`
 - `ipr_report_path`: `artifacts/audit/phase_09_ipr_review_report.md`

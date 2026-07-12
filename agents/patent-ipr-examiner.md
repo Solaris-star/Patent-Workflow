@@ -52,7 +52,7 @@ tools: Read, Glob, Grep, Bash
   "dimension_scores": {"novelty_score": 18, "inventiveness_score": 20, "practicality_score": 24, "clarity_score": 19},
   "support_risk": "low|medium|high",
   "support_risk_reasons": ["…"],
-  "evidence_basis": "ipr_pack@claims_verified | ipr_pack@abstract_only | 无对比文献（仅形式与逻辑审查）",
+  "evidence_basis": "ipr_pack@claims_verified | ipr_pack@abstract_only | ipr_pack@mixed | 无对比文献（仅形式与逻辑审查）",
   "self_check": {"all_files_read": true, "prior_art_cross_checked": true, "no_novelty_pass_without_evidence": true}
 }
 ```

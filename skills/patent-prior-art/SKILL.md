@@ -114,6 +114,8 @@ description: |
 
 ### Step 6：产出交接包
 
+两包均落盘（跨会话不蒸发；下游 review/oa 按固定路径读取）：`artifacts/prior_art/phase_05_background_pack.json` 与 `artifacts/prior_art/phase_05_ipr_pack.json`。
+
 **背景专利包 background_pack**（放行写作的门禁）：
 
 - `background_patents`：≥ 2 篇已验证专利的显式数组（title / titlePattern / publicationNumber / abstract / validationStatus / verificationSource / sourceUrl / usableAsBackground）

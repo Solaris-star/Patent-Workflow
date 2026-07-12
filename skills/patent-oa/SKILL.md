@@ -66,7 +66,7 @@ OA 是已交付案件的新事件——**不复活已关闭的写作 run**。工
 
 ## Step 3：特征对比表
 
-`feature_matrix.json`——本申请权利要求逐特征 × 各 D 文件（**与 ipr_pack 的 feature_to_prior_art_matrix 同构**，为 Step 5 复用 agent 铺路）：
+`feature_matrix.json`——本申请权利要求逐特征 × 各 D 文件（**与 ipr_pack 的 feature_to_prior_art_matrix 同构**，为 Step 5 复用 agent 铺路；原案 workspace 还在时可直接读 `artifacts/prior_art/phase_05_ipr_pack.json` 作底稿对照）：
 
 ```json
 {"matrix": [{

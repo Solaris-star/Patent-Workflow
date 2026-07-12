@@ -88,7 +88,7 @@ description: |
 每张图三个文件同前缀存放 `附图/`（`fig_01_XXX.*`），禁止另设 final/、drawings/ 等目录：
 
 1. **`.mmd`**（逻辑源，必须）：`graph TD/LR` 开头，节点 ID 用字母数字（A1、B2），避免 `subgraph`/`style`（ProcessOn 兼容）；同时以可见代码块嵌入 part_04。
-2. **`.drawio`**（可编辑源，必须）：**由模型直接生成 draw.io XML 文件**（mxGraph 格式为公开纯文本，无需任何 CLI）；节点布局给出明确坐标，白底黑字。
+2. **可编辑源**（必须，`.drawio` 或 `.vsdx` 至少其一，与门禁口径一致；默认产 `.drawio`）：**由模型直接生成 draw.io XML 文件**（mxGraph 格式为公开纯文本，无需任何 CLI）；节点布局给出明确坐标，白底黑字。
 3. **`.png`/`.svg`**（嵌图文件，必须）：能力梯度——本机 `mmdc` 可用（`mmdc -i fig.mmd -o fig.png -b white`）→ 优先；不可用则从 `.drawio`/在线渲染兜底；全部不可行时明确告知用户需手工渲染这一步，**不得静默跳过**。
 
 复杂流程图（多分支/多回路）不信任 Mermaid 自动布局的成品质量：以 `.drawio` 为成品真源导出图片，`.mmd` 仅作逻辑兜底。图号、文件名、正文「如图X所示」、part_04 描述四者一一对应（联动规则见 FIGURE_DELIVERY_CHECKLIST）。
@@ -97,7 +97,7 @@ description: |
 
 - 单块修改 > 100 字 → 分析对其余 part 的跨块影响（新技术特征？方案变更？图需更新？），输出联动修改建议清单待用户确认。
 - 每次修改前把当前版本备份到 `versions/`（保留近 5 版），支持回滚。
-- **受 review 委托代改时的留痕**（用户在审查汇报后点名委托的条目）：改前把**用户批准的条目**记为 `artifacts/revision/phase_10_edit_plan.json`（`doc_type: edit_plan`、`phase: phase_10`，每条含 edit_id / type / problem / change_instruction / risk_if_not_fixed / target.section，`acceptance_checks` 含复审项）；每条落实后记 `artifacts/revision/phase_10_structured_diff.json`（含 `linked_edit_id` 与修改前后摘要）；留痕完整性由 `--gate review` 校验。语言类条目的改写交 `patent-deslop` 执行。用户自己动手改的场景无此要求。
+- **受 review 委托代改时的留痕**（用户在审查汇报后点名委托的条目）：改前把**用户批准的条目**记为 `artifacts/revision/phase_10_edit_plan.json`（`doc_type: edit_plan`、`phase: phase_10`，每条含 edit_id / type / problem / change_instruction / risk_if_not_fixed: high|medium|low / target.section，`acceptance_checks` 含复审项）；每条落实后记 `artifacts/revision/phase_10_structured_diff.json`（`doc_type: structured_diff`、`phase: phase_10`，`diff_items[]` 每条含 `change_kind: add|delete|replace|move`、`location.section`、`linked_edit_id`（须存在于 edit_plan）、`before_excerpt`（delete/replace/move 必填）、`after_excerpt`（add/replace/move 必填））。`--gate review` 校验两文件结构 + **plan→diff 覆盖**（每条批准的 edit 至少一条 diff，缺一 fail）。语言类条目的改写交 `patent-deslop` 执行。用户自己动手改的场景无此要求（届时 review gate 自动 skip）。
 
 ## 导出段
 

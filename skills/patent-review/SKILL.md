@@ -34,7 +34,7 @@ description: |
 | `patent-tech-reviewer` | 技术审查（数据流闭合/可实现性/数据真实性/实施例相关性） |
 | `patent-language-auditor` | 语言审查（AI 浓度/语气/专利文体，只查不改） |
 
-派发时给每个 agent：待审文件清单 + 对应证据路径（facts_ledger / ipr_pack / research_pack，按视角）。
+派发时给每个 agent：待审文件清单 + 对应证据路径（facts_ledger / ipr_pack / research_pack，按视角；ipr_pack 固定在 `artifacts/prior_art/phase_05_ipr_pack.json`，background_pack 在 `…/phase_05_background_pack.json`）。
 
 **梯度 2 —— 预定义 agent 缺失**：用宿主通用子代理机制并行派发，指令按视角现场组装：
 
@@ -75,7 +75,7 @@ description: |
 
 ## 复审模式（用户改完后触发）
 
-1. 复审范围：被修改的部分 + 上一轮全部 high 项（最小充分集，不必全文重审；用户要求全审除外）。
+1. 复审范围：被修改的部分 + 上一轮全部 high 项 + 修改联动可能波及的关联段（以 patent-draft 联动修改建议清单为准；最小充分集，不必全文重审——用户要求全审除外）。
 2. 结果写 `artifacts/revision/phase_10_post_fix_check_report.md`，与上一轮报告对照给出「已解决 / 未解决 / 新引入」三类清单。
 3. 仍有 high 项 → 回到汇报等用户决策（`revision_round` +1）；无 high 项或用户豁免 → 全流程可进入终稿导出。
 
