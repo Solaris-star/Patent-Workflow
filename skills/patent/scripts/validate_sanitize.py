@@ -19,6 +19,7 @@ Exit codes:
 """
 
 import argparse
+import html
 import json
 import re
 import sys
@@ -63,24 +64,30 @@ def _docx_texts(path: Path) -> list[tuple[str, str]]:
             joined = "\n".join(
                 "".join(W_T.findall(para)) for para in W_P_END.split(raw)
             )
-            out.append((name, joined))
-            out.append((f"{name}(raw)", raw))
+            # unescape XML entities ('AT&T' is stored as 'AT&amp;T' — matching the
+            # escaped form would systematically miss such terms)
+            out.append((name, html.unescape(joined)))
+            out.append((f"{name}(raw)", html.unescape(raw)))
     return out
 
 
-def _load_texts(path: Path) -> list[tuple[str, str]]:
-    """Return [(label, text)] for one file; empty list if unsupported/binary."""
+def _load_texts(path: Path) -> tuple[list[tuple[str, str]], list[str]]:
+    """Return ([(label, text)], errors) for one file.
+
+    A file this gate cannot read is a FAILURE, not a pass — an unverifiable
+    input must never let the leak check go green (fail-closed).
+    """
     if path.suffix.lower() == ".docx":
         try:
-            return [(f"{path}::{m}", t) for m, t in _docx_texts(path)]
+            return [(f"{path}::{m}", t) for m, t in _docx_texts(path)], []
         except Exception as e:
-            return [(str(path), f"__DOCX_READ_ERROR__: {e}")]
+            return [], [f"docx read error (unverifiable, treated as fail): {path}: {e}"]
     if path.suffix.lower() in TEXT_EXTS:
         try:
-            return [(str(path), path.read_text(encoding="utf-8", errors="replace"))]
+            return [(str(path), path.read_text(encoding="utf-8", errors="replace"))], []
         except Exception as e:
-            return [(str(path), f"__READ_ERROR__: {e}")]
-    return []
+            return [], [f"read error (unverifiable, treated as fail): {path}: {e}"]
+    return [], []
 
 
 def _context(text: str, start: int, end: int, span: int = 40) -> str:
@@ -156,12 +163,19 @@ def main() -> int:
     map_hits: list[dict] = []
     heuristic_hits: list[dict] = []
     scanned = 0
+    explicit = {Path(f) for f in args.files}
 
     for path in targets:
         if not path.exists():
             errors.append(f"file not found: {path}")
             continue
-        for label, text in _load_texts(path):
+        texts, load_errors = _load_texts(path)
+        errors.extend(load_errors)
+        if not texts and not load_errors and path in explicit:
+            # explicitly named but of a type this gate cannot scan — refusing
+            # silently would fake a pass on an unverified file
+            errors.append(f"unsupported file type, cannot verify: {path}")
+        for label, text in texts:
             scanned += 1
             for entry in entries:
                 map_hits.extend(_match_entry(entry, label, text))
@@ -170,6 +184,9 @@ def main() -> int:
                     for m in re.finditer(pat, text):
                         heuristic_hits.append({"file": label, "kind": kind, "match": m.group(0)[:120],
                                                "context": _context(text, m.start(), m.end())})
+
+    if scanned == 0 and not errors:
+        errors.append("no scannable texts found — nothing was verified")
 
     passed = len(errors) == 0 and len(map_hits) == 0
 

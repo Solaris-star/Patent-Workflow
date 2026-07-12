@@ -19,9 +19,10 @@
 - `final_title`:
 - `output_dir`:            # 冷启动必填：用户明确指定的绝对路径，不得默认猜测
 - `research_origin`:       # normal / vault_pool / mine（可选）
+- `vault_direction_origin`: # 从方向池挑选时填方向的 origin（research / mine）；mine 即涉密血统（可选）
 - `vault_case_id`:         # vault 存在且已登记案件时填（可选）
 - `vault_opted_out`:       # 本轮已问过 vault init 且用户拒绝时记 true，后续挂钩不再问（可选）
-- `sensitive_map_path`:    # 涉密 run 必填（绝对路径）；一旦声明，deliver 门禁必须带 --sensitive-map
+- `sensitive_map_path`:    # 涉密 run 必填（绝对路径），用 init_run_manifest.py --update 写入；mine 血统缺声明 → --gate research 直接 fail；声明后 deliver 门禁必须带 --sensitive-map
 
 ## 能力画像（开局探测一次）
 

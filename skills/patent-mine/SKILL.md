@@ -20,7 +20,11 @@ description: |
 开挖前检查 `<项目根>/.patent-private/sensitive_map.json`：
 
 - 不存在或 `confirmed_by_user: false` → **先跳转 `patent-sanitize` 的 build-map 模式**，用户逐条确认固化后才回来开挖。无一例外。
-- 把 `sensitive_map_path`（绝对路径）写入 run manifest——这会激活 deliver 门禁的脱敏强制检查（声明即强制）。
+- 声明用脚本写入而非手改 markdown（手写漏行/格式歪 = 全部脱敏检查静默失效）：
+  ```
+  python <patent-skill-dir>/scripts/init_run_manifest.py --update --out artifacts/run_manifest.md --research-origin mine --sensitive-map-path <map 绝对路径>
+  ```
+  声明即强制两处兜底：mine 血统缺声明或 map 文件不存在 → `--gate research` 直接 fail；声明后 deliver 门禁必须带 `--sensitive-map`。
 
 ## Step 1：项目侦察
 
@@ -46,6 +50,8 @@ description: |
 3. 效果**可客观描述**——可测量、可对比、不依赖编造数据？
 
 **公开对照快查**（存活点逐个做，通道按 [../patent/references/search-protocol.md](../patent/references/search-protocol.md)）：每点检索 2-3 条公开证据（论文/竞品文档/开源实现/技术博客），抓取正文确认「公开世界还没有一模一样的做法」或找出最接近的公开方案作差异锚点。快查 ≠ 正式查新——正式查新仍由 patent-prior-art 在下一步完成。
+
+**检索词硬约束（先于脱敏的外发通道）**：快查发生在 apply 之前，query 会外发第三方搜索服务且不可撤回——检索词只准用技术特征的**通用/泛化表述**，内部代号、真实指标数字、内部路径/域名/客户名严禁入 query；拿不准某词是否可用时先对照 map，在 map 里的一律不用。
 
 ## Step 4：落盘含密原始产物
 
@@ -80,13 +86,13 @@ description: |
 2. 组装**同构 research pack** 写入 run workspace 的 `artifacts/research/phase_02_research_pack.json`：
    - `research_questions`（≥8）：由各候选点的三问展开（每点 2-3 问）；
    - `outline_skeleton`（≥5）：按「背景痛点 / 现有公开方案 / 候选方案 / 差异 / 效果」组织；
-   - `evidence`（≥8）：**全部来自公开对照快查的 http URL 证据**（3-5 点 × 2-3 条自然达标，带 date/freshness）——`local_evidence` 含密，永不进 pack。
+   - `evidence`（≥8）：**全部来自公开对照快查的 http URL 证据**（3-5 点 × 2-3 条，不足 8 条时对重点候选补充检索，带 date/freshness）——`local_evidence` 含密，永不进 pack。
 3. 泄密确定性自检（必过才许进管线）：
    ```
    python <patent-skill-dir>/scripts/validate_sanitize.py --map <项目>/.patent-private/sensitive_map.json --files artifacts/research/phase_02_research_pack.json
    ```
 4. 跑 `--gate research`；通过后输出汇报层（候选点表：维度 / 三问结论 / 公开对照结论 / 推荐排序，**全部用脱敏后表述**），进入方向收敛。
-5. 落选点经用户确认后入 vault 方向池（`origin: mine`，脱敏后表述）；vault 未初始化则按 patent-vault「未初始化引导」问一次，拒绝即跳过。
+5. 落选点经用户确认后入 vault 方向池（`origin: mine`，脱敏后表述，**必带 `origin_sensitive_map_path`**——add-direction 对缺失该字段的 mine 方向直接拒绝，血统不因入池中转而丢失）；vault 未初始化则按 patent-vault「未初始化引导」问一次，拒绝即跳过。
 
 ## 禁止事项
 
@@ -94,3 +100,4 @@ description: |
 2. 不把常规工程实践包装成专利点——三问是一票否决不是打分项。
 3. 快查不冒充查新；`public_baseline_check` 的 verdict 不得写成「无现有技术」这类查新结论。
 4. 发现密钥/凭据类内容：立即提醒用户从源头移除并轮换，不纳入任何产物。
+5. map 词条（内部代号/真实指标/路径/客户名）禁止出现在任何外发检索 query 里。

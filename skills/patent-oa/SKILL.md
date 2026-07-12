@@ -38,11 +38,14 @@ OA 是已交付案件的新事件——**不复活已关闭的写作 run**。工
     "examiner_cited_paragraphs": ["[0032]-[0041]"]
   }],
   "status": "parsed|d_files_ready|matrix_done|argued|red_teamed|handed_to_attorney",
-  "vault_case_id": null
+  "vault_case_id": null,
+  "sensitive_map_path": null
 }
 ```
 
 有 vault 时回链：开始时 `update-case <id> --status oa_pending`，工作稿移交后 `--status oa_replied`；无 vault 零影响。
+
+**涉密血统继承（硬规则）**：原案 run manifest 可定位且声明了 `sensitive_map_path` → oa_manifest 必须继承该字段；原 manifest 不可得但案件疑似 mine 血统（vault 案件记录、用户告知）→ 先向用户确认 map 位置再继续。继承了 map 的 OA，Step 7 移交前对全部对外产物（工作稿/feature_matrix/claim_amendment/docx）跑 `validate_sanitize.py --map <该路径> --files …`，命中即回改——OA 工作稿同样会离开本机，不受 deliver 门禁保护，这一步就是它的替代闸。
 
 ## Step 1：解析通知书
 

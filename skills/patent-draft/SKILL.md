@@ -101,7 +101,7 @@ description: |
 
 ## 导出段
 
-前置：全流程中须 `--gate review` 已通过；独立使用（用户只要出稿）时提示未审查风险后可继续。
+前置：全流程中须 `--gate review` 已通过；独立使用（用户只要出稿）时提示未审查风险后可继续。**独立导出且来路文本未知时**（无 run manifest 的「已有 md 帮我出 docx」场景），先跑 `python <patent-skill-dir>/scripts/validate_sanitize.py --heuristics --files <输入.md>` 启发式扫一遍——命中 IP/URL/路径/邮箱即向用户警示可能含密，确认后再出稿。
 
 1. **合并**：按序拼接 5 个 part，附图说明保留每图的 Mermaid 代码块；插入正文图引用。
 2. **生成 docx**（能力梯度）：首选内置脚本 `python <patent-skill-dir>/scripts/generate_docx.py <合并版.md> <输出.docx>`（CN 标准排版：正文宋体/标题黑体/A4/自动嵌图，依赖 python-docx）；不可用时降级宿主 docx 能力 / pandoc。标题样式统一，附图图片真实嵌入对应位置。
@@ -112,5 +112,5 @@ description: |
    python <patent-skill-dir>/scripts/run_phase_gates.py --gate deliver --workspace . --deliver-dir "<交付目录>" --patent-title "<最终题名>" --manifest artifacts/run_manifest.md
    ```
    自动校验：文件名匹配、docx `word/media/` 非空（图真嵌入）、审计/IPR 报告存在、图三件套齐全。未过先自查修复重跑。
-   **涉密 run**（manifest 声明了 `sensitive_map_path`）：命令必须追加 `--sensitive-map <该路径>`，否则门禁直接 fail（声明即强制）；建议交付前先跑一次 `patent-sanitize` audit 人工过目。
+   **涉密 run**（manifest 声明了 `sensitive_map_path`）：命令必须追加 `--sensitive-map <该路径>`，否则门禁直接 fail（声明即强制）；交付前**必须**先跑一次 `patent-sanitize` audit 并人工过目——词表门禁查不出同义改写等语义级泄密，人工过目是最后一道闸。
 6. **可选 IM 交付**：用户经 Discord/飞书等渠道沟通时，发送终稿 docx + 「一致性评分 + IPR 评分 + Top3 风险」摘要。

@@ -94,16 +94,17 @@ description: |
 python <patent-skill-dir>/scripts/run_phase_gates.py --gate deliver … --sensitive-map <项目>/.patent-private/sensitive_map.json
 ```
 
-**manifest 声明即强制**：run manifest 写了非空 `sensitive_map_path` 而 deliver 门禁未带 `--sensitive-map` → 门禁直接 fail（防「忘带参数静默漏检」）。未涉密的 run 不写该字段，行为与从前完全一致。
+**manifest 声明即强制**（两端兜底）：声明一律用 `init_run_manifest.py --update --sensitive-map-path <路径>` 脚本写入，不手改 markdown。前端：manifest 的 `research_origin` 或 `vault_direction_origin` 为 `mine` 而 `sensitive_map_path` 缺失/文件不存在 → `--gate research` 直接 fail（防漏声明）。后端：写了非空 `sensitive_map_path` 而 deliver 门禁未带 `--sensitive-map` → 门禁直接 fail（防忘带参数）。未涉密的 run 不写该字段，行为与从前完全一致。
 
 ## 与家族的接口
 
 1. **patent-mine（强制卡点）**：无已确认 map 不开挖；`mining_raw.json` → apply → 同构 research pack → validate_sanitize 过检后才准进 `--gate research`。
-2. **patent-draft（交付前）**：涉密 run 交付前跑一次 audit；deliver 门禁带 `--sensitive-map`。
+2. **patent-draft（交付前）**：涉密 run 交付前**必须**跑一次 audit 并人工过目（非建议）；deliver 门禁带 `--sensitive-map`。
 3. **独立使用**：任意专利文本的泄密检查/脱敏改写，随叫随到。
 
 ## 边界与局限
 
+- **validate_sanitize 是字面词表交集检查**——同义改写、英文缩写、拼音变体，以及「架构拓扑/参数组合本身即密」的语义级泄密均不在其能力内；map 没登记的概念它也查不出。「确定性 pass」只等于「词条零残留」，不等于安全。补偿手段：build-map 阶段宁多勿漏（把变体全录进 aliases），涉密 run 交付前的 audit 人工过目是**必做步骤而非建议**。
 - 不改技术方案实质；术语改写须与 facts_ledger.terminology 同步（由调用方负责登记上位词）。
 - **图片像素内的文字无法确定性扫描**——附图源文件（.mmd/.drawio 为文本可扫）覆盖大部分风险；成品 png/svg 中的文字在宿主有视觉能力时由 audit 模式人工看图兜底，此局限必须向用户明示。
 - 本 skill 不保管密钥/凭据类内容——发现 API key/密码直接要求用户从源头移除并轮换，不做「脱敏后保留」。

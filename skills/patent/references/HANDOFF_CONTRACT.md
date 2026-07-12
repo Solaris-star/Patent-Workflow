@@ -20,10 +20,11 @@
 
 ## 存量挖掘（patent-mine）→ 方向收敛
 
-- `phase_02_research_pack.json`（脱敏后同构产出）已落盘且 `--gate research` 通过
-- `sensitive_map_path` 已写入 manifest（`confirmed_by_user: true`）
+- `phase_02_research_pack.json`（脱敏后同构产出）已落盘且 `--gate research` 通过（该 gate 对 mine 血统强制校验 `sensitive_map_path` 非空且文件存在）
+- `sensitive_map_path` 已用 `init_run_manifest.py --update` 写入 manifest（map 须 `confirmed_by_user: true`；禁止手改 markdown 声明）
 - `validate_sanitize.py` 对 pack 过检通过
 - 含密件（mining_raw / sanitize_log）均在源项目 `.patent-private/`，未进 workspace
+- 落选点入 vault 时带 `origin_sensitive_map_path`（血统锚点，挑选时继承进新 manifest）
 
 ## 调研（patent-research / -cli）→ 方向收敛
 

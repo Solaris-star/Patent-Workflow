@@ -99,18 +99,45 @@ def _patch_manifest(manifest_path: Path, summary_json: str) -> None:
     manifest_path.write_text(new_text, encoding="utf-8")
 
 
-def _manifest_declared_sensitive_map(manifest_path: Path) -> str | None:
-    """Return non-empty sensitive_map_path declared in the run manifest, else None."""
+# values that mean "field not actually filled in" (compared casefolded)
+_PLACEHOLDERS = {"", "tbd", "todo", "none", "null", "n/a", "na", "-", "无", "（无）", "(无)", "待定", "暂无"}
+
+
+def _manifest_field(manifest_path: Path, key: str) -> str | None:
+    """Return the non-empty value of a '- `key`: value' manifest line, else None.
+
+    Strips trailing '# …' template comments (only when the '#' starts the value or
+    follows whitespace, so paths containing '#' survive) and surrounding backticks;
+    placeholder values ("", TBD, 无, <key>, …) count as not declared.
+    """
     if not manifest_path.exists():
         return None
     text = manifest_path.read_text(encoding="utf-8", errors="replace")
-    m = re.search(r"^\s*-\s*`sensitive_map_path`\s*:\s*([^#\n]*)", text, flags=re.MULTILINE)
+    m = re.search(rf"^\s*-\s*`{re.escape(key)}`\s*:\s*(.*)$", text, flags=re.MULTILINE)
     if not m:
         return None
-    v = m.group(1).strip()
-    if v in {"", "<sensitive_map_path>", "TBD", "TODO", "none", "null"}:
+    v = re.sub(r"(?:^|\s+)#.*$", "", m.group(1)).strip().strip("`").strip()
+    if v.casefold() in _PLACEHOLDERS or (v.startswith("<") and v.endswith(">")):
         return None
     return v
+
+
+def _manifest_declared_sensitive_map(manifest_path: Path) -> str | None:
+    """Return non-empty sensitive_map_path declared in the run manifest, else None."""
+    return _manifest_field(manifest_path, "sensitive_map_path")
+
+
+def _policy_fail(name: str, message: str) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "cmd": ["<policy>", name],
+        "exitCode": 2,
+        "stdout": "",
+        "stderr": message,
+        "startedAt": now,
+        "finishedAt": now,
+        "passed": False,
+    }
 
 
 def _artifact_paths(ws: Path) -> dict:
@@ -134,6 +161,27 @@ def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | 
     runs: list[dict] = []
 
     if gate == "research":
+        # Mine-lineage early check: a mine-origin run (directly, or via a vault
+        # direction whose origin is mine) MUST declare a real sensitive_map_path —
+        # catching a missing declaration here instead of silently reaching deliver.
+        if manifest:
+            mp = Path(manifest)
+            origin = _manifest_field(mp, "research_origin")
+            lineage = _manifest_field(mp, "vault_direction_origin")
+            if origin == "mine" or lineage == "mine":
+                declared = _manifest_field(mp, "sensitive_map_path")
+                if not declared:
+                    runs.append(_policy_fail(
+                        "mine-run-missing-sensitive-map-declaration",
+                        "manifest marks mine lineage (research_origin/vault_direction_origin = mine) "
+                        "but sensitive_map_path is empty; declare it via: "
+                        "init_run_manifest.py --update --out <manifest> --sensitive-map-path <abs path>",
+                    ))
+                elif not Path(declared).exists():
+                    runs.append(_policy_fail(
+                        "mine-run-sensitive-map-not-found",
+                        f"manifest declares sensitive_map_path = {declared} but the file does not exist",
+                    ))
         runs.append(_run(["python", str(SCRIPTS_DIR / "validate_research_pack.py"), str(ap["research_pack"])]))
 
     elif gate == "prior-art":
@@ -196,22 +244,12 @@ def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | 
         elif manifest:
             declared = _manifest_declared_sensitive_map(Path(manifest))
             if declared:
-                now = datetime.now(timezone.utc).isoformat()
-                runs.append(
-                    {
-                        "cmd": ["<policy>", "sensitive-map-declared-but-not-checked"],
-                        "exitCode": 2,
-                        "stdout": "",
-                        "stderr": (
-                            f"run manifest declares sensitive_map_path = {declared} "
-                            "but deliver gate was invoked without --sensitive-map; "
-                            "re-run with: --sensitive-map <path>"
-                        ),
-                        "startedAt": now,
-                        "finishedAt": now,
-                        "passed": False,
-                    }
-                )
+                runs.append(_policy_fail(
+                    "sensitive-map-declared-but-not-checked",
+                    f"run manifest declares sensitive_map_path = {declared} "
+                    "but deliver gate was invoked without --sensitive-map; "
+                    "re-run with: --sensitive-map <path>",
+                ))
         runs.append(
             _run(
                 [

@@ -11,12 +11,15 @@ Subcommands:
   init                                   create data root + empty data files
   check-title  "<title>"                 normalized bigram-Jaccard coarse screen (>=0.35)
   add-direction [--json-file f]          append one direction JSON (file preferred; stdin fallback)
+                                         origin=mine REQUIRES origin_sensitive_map_path
   pick-direction <id> --target-workspace <dir>
-                                         copy research snapshot into target workspace, mark picked
+                                         copy research snapshot into target workspace, mark picked;
+                                         fails (without burning the direction) if a declared snapshot
+                                         is missing; surfaces mine lineage for manifest inheritance
   list [--pool] [--status <s>]           list directions (with computed freshness) or cases
-  register-case                          read one case JSON from stdin, append
+  register-case [--json-file f]          append one case JSON (file preferred; stdin fallback)
   update-case <case_id> [--status s] [--event e] [--set k=v ...]
-  import-titles                          read {"titles":[...]} JSON from stdin, merge into titles_used
+  import-titles [--json-file f]          merge {"titles":[...]} into titles_used
 
 All writes are atomic (temp + os.replace). Output: JSON to stdout. Exit 0 ok / 2 error.
 """
@@ -25,6 +28,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import sys
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -198,8 +202,16 @@ def cmd_check_title(root: Path, title: str) -> int:
 
 def cmd_add_direction(root: Path, stdin_text: str) -> int:
     d = json.loads(stdin_text)
+    if not isinstance(d, dict):
+        return _fail("direction payload must be a JSON object")
     if not d.get("title_seed"):
         return _fail("direction.title_seed is required")
+    # sensitive lineage must survive the vault detour: a mine-origin direction
+    # without its map anchor could later be picked into a run that never
+    # re-arms the deliver leak check
+    if d.get("origin") == "mine" and not d.get("origin_sensitive_map_path"):
+        return _fail("mine-origin direction requires origin_sensitive_map_path "
+                     "(absolute path to the source project's confirmed sensitive_map.json)")
     pool = _load(_pool_path(root), EMPTY_POOL)
     d.setdefault("direction_id", f"DIR-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:4]}")
     d.setdefault("harvested_at", _now())
@@ -220,25 +232,50 @@ def cmd_pick_direction(root: Path, direction_id: str, target_workspace: str) -> 
         if d.get("direction_id") == direction_id:
             status = _direction_status(d, now)
             snapshot_rel = (d.get("source_run") or {}).get("research_snapshot") or ""
-            snapshot = root / snapshot_rel if snapshot_rel else None
             copied = None
-            if snapshot and snapshot.exists():
+            warnings = []
+            if snapshot_rel:
+                snapshot = root / snapshot_rel
+                if not snapshot.exists():
+                    # fail BEFORE mutating: burning the direction on a broken
+                    # snapshot path would lose it with no undo command
+                    return _fail(
+                        f"research snapshot declared but not found: {snapshot} — direction NOT picked; "
+                        "fix source_run.research_snapshot (path must be relative to the vault root, "
+                        "e.g. research_snapshots/<run_id>.json)"
+                    )
                 dest = Path(target_workspace) / "artifacts" / "research" / "phase_02_research_pack.json"
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_text(snapshot.read_text(encoding="utf-8"), encoding="utf-8")
+                shutil.copyfile(snapshot, dest)
                 copied = str(dest)
+            else:
+                warnings.append("no research snapshot declared — the new workspace must run patent-research")
             d["status"] = "picked"
             d["picked_at"] = _now()
             pool["updated_at"] = _now()
             _atomic_write(_pool_path(root), pool)
-            return _ok({
+            origin = d.get("origin") or "research"
+            result = {
                 "direction_id": direction_id,
+                "origin": origin,
                 "freshness_at_pick": status,
                 "snapshot_copied_to": copied,
                 "revalidation_required": status == "expired",
+                "warnings": warnings,
                 "note": "expired direction picked — run a targeted patent-research revalidation before prior-art"
                 if status == "expired" else "",
-            })
+            }
+            if origin == "mine":
+                # sensitive lineage must be inherited by the new run's manifest,
+                # otherwise the deliver leak check silently disarms
+                result["sensitive_map_required"] = True
+                result["origin_sensitive_map_path"] = d.get("origin_sensitive_map_path")
+                result["manifest_instruction"] = (
+                    "init_run_manifest.py --update --out <workspace>/artifacts/run_manifest.md "
+                    "--research-origin vault_pool --vault-direction-origin mine "
+                    "--sensitive-map-path <origin_sensitive_map_path>"
+                )
+            return _ok(result)
     return _fail(f"direction not found: {direction_id}")
 
 
