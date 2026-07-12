@@ -62,7 +62,7 @@ description: |
 5. 组装并落盘 `artifacts/research/phase_02_research_pack.json`（结构严格按契约文件，evidence 带 date 与 freshness）。
 6. 输出汇报层 Markdown（Research Scope / Channels / Evidence Table / Candidate Directions / Recommendation / Needs Patent Verification）。
 7. 跑门禁：`python <patent-skill-dir>/scripts/run_phase_gates.py --gate research --workspace . --manifest artifacts/run_manifest.md`，未过先自行补证据重跑，最多 3 轮后仍不过才向用户说明缺口。
-8. vault 存在时（`~/.patent-vault/` 已初始化）：方向收敛后，把**未被选中**的候选方向逐条列出，经用户确认后入方向池——先复制本轮 research pack 为 `~/.patent-vault/research_snapshots/<run_id>.json`，再 `vault.py add-direction --json-file <临时json>`（细则见 patent-vault）。vault 不存在则跳过本条。
+8. vault 存在时（`~/.patent-vault/` 已初始化）：方向收敛后，把**未被选中**的候选方向逐条列出，经用户确认后入方向池——先复制本轮 research pack 为 `~/.patent-vault/research_snapshots/<run_id>.json`，再 `vault.py add-direction --json-file <临时json>`（细则见 patent-vault）。vault 未初始化且本轮未问过（无 manifest 或 manifest 无 `vault_opted_out`）→ 按 patent-vault「未初始化引导」问一次：同意即 init 后照常入池，拒绝则跳过本条。
 
 ## 禁止事项
 

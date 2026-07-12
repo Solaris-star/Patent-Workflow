@@ -24,7 +24,13 @@ description: |
 └── research_snapshots/      # 落选方向对应的 research pack 整包快照
 ```
 
-探测 = `cases.json` 存在且可解析，一轮 workflow 只探测一次；**不存在则所有对接点静默跳过**（不提示安装、不报错）。首次启用：`python <本 skill>/scripts/vault.py init`。
+探测 = `cases.json` 存在且可解析，一轮 workflow 只探测一次。首次启用：`python <本 skill>/scripts/vault.py init`。
+
+**未初始化引导（本节是家族唯一真源，其他 skill 遇未初始化按此处理）**：
+
+- **用户主动进入本 skill**（/patent-vault 或方向池/查重/案件类意图）→ 不报错：说明「vault 未初始化；init 只在 `~/.patent-vault/` 建三个 JSON 索引文件，不影响任何现有 run」并询问，同意 → `vault.py init` 后**继续用户原本要做的操作**，拒绝 → 结束并说明该功能 init 前不可用。
+- **其他 skill 的挂钩点**（patent 开局探测、research/mine 落选方向入池等）→ **每 run 只问一次**：「要不要初始化选题库？落选方向可积累复用，下轮直接挑；跳过不影响本轮流程」。同意 → init 后照常执行挂钩；拒绝 → 本轮余下挂钩全部静默跳过，有 manifest 时记 `vault_opted_out: true`（后续步骤见此标记不再问）。
+- **存在但不可解析**（文件损坏）→ 不适用本节：如实报错待用户处置，**禁止自动重建覆盖**。
 
 ## 四类操作
 

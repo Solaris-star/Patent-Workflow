@@ -86,7 +86,7 @@ description: |
    python <patent-skill-dir>/scripts/validate_sanitize.py --map <项目>/.patent-private/sensitive_map.json --files artifacts/research/phase_02_research_pack.json
    ```
 4. 跑 `--gate research`；通过后输出汇报层（候选点表：维度 / 三问结论 / 公开对照结论 / 推荐排序，**全部用脱敏后表述**），进入方向收敛。
-5. 落选点经用户确认后入 vault 方向池（`origin: mine`，脱敏后表述）。
+5. 落选点经用户确认后入 vault 方向池（`origin: mine`，脱敏后表述）；vault 未初始化则按 patent-vault「未初始化引导」问一次，拒绝即跳过。
 
 ## 禁止事项
 

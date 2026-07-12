@@ -46,7 +46,7 @@ description: |
 4. 能力探测一次并写入 manifest 的 `capability_profile`（协议见 [references/search-protocol.md](references/search-protocol.md)）：
    - `smart-search` CLI 是否存在（存在 → 调研走 `patent-research-cli`）
    - 会话中是否有搜索/浏览器类 MCP 工具
-5. 检查可复用初始化工件（见「缓存复用」）与 vault（`~/.patent-vault/` 存在则提示在写案件数与可用方向数，用户可「从方向池挑一个」跳过调研；不存在则静默跳过）。
+5. 检查可复用初始化工件（见「缓存复用」）与 vault（`~/.patent-vault/` 存在则提示在写案件数与可用方向数，用户可「从方向池挑一个」跳过调研；未初始化则按 patent-vault「未初始化引导」处理，拒绝记 `vault_opted_out`）。
 
 ## 全流程管线
 
