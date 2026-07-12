@@ -13,7 +13,8 @@ $agentRoot = Join-Path $HOME '.claude\agents'
 
 $family = @(
   'patent', 'patent-research', 'patent-research-cli', 'patent-prior-art',
-  'patent-style', 'patent-draft', 'patent-review', 'patent-deslop'
+  'patent-style', 'patent-draft', 'patent-review', 'patent-deslop',
+  'patent-vault', 'patent-mine', 'patent-sanitize', 'patent-oa'
 )
 
 foreach ($s in $family) {

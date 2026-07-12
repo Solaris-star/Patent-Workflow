@@ -22,6 +22,10 @@ description: |
 | 写交底书/出稿 | 写交底书、分块撰写、生成 docx、导出终稿、出附图 | `/patent-draft` |
 | 审查/回改 | 审查、一致性审计、IPR 审查、模拟审查、回改 | `/patent-review` |
 | 去 AI 味 | 去 AI 味、太 AI 了、汇报腔、解释腔、改语气 | `/patent-deslop` |
+| 选题库/多案 | 方向池、选题库、挑个方向、我的案子、查重、案件状态 | `/patent-vault` |
+| 存量项目挖掘 | 从项目挖专利、这个项目能申请什么、反向挖掘 | `/patent-mine` |
+| 脱敏/泄密检查 | 脱敏、泄密、保密审查、这篇能不能公开 | `/patent-sanitize` |
+| 审查意见答复 | 审查意见、OA、答复通知书、对比文件、三步法 | `/patent-oa` |
 
 路由流程：
 
@@ -42,7 +46,7 @@ description: |
 4. 能力探测一次并写入 manifest 的 `capability_profile`（协议见 [references/search-protocol.md](references/search-protocol.md)）：
    - `smart-search` CLI 是否存在（存在 → 调研走 `patent-research-cli`）
    - 会话中是否有搜索/浏览器类 MCP 工具
-5. 检查可复用初始化工件（见「缓存复用」）。
+5. 检查可复用初始化工件（见「缓存复用」）与 vault（`~/.patent-vault/` 存在则提示在写案件数与可用方向数，用户可「从方向池挑一个」跳过调研；不存在则静默跳过）。
 
 ## 全流程管线
 
@@ -50,17 +54,19 @@ description: |
 |---|---|---|
 | 1. 初始化层（可选） | `patent-style` | 模板/风格工件；冷启动或换模板时才跑，否则复用缓存 |
 | 2. 调研选题 | `patent-research(-cli)` | `phase_02_research_pack.json` → `--gate research` 通过 |
-| 3. 方向收敛 | 本 skill 主持 | 用户确认方向与题名（**第二处默认停顿，也是最后一处**） |
+| 3. 方向收敛 | 本 skill 主持 | 用户确认方向与题名（第二处默认停顿）；vault 存在时先 `vault.py check-title` 撞车检测（模型语义终裁），结论向用户明示后定题，随后 `register-case` |
 | 4. 查新检索 | `patent-prior-art` | 候选池 + 证据包 → `--gate prior-art` 通过，背景包放行写作 |
 | 5. 分块撰写 | `patent-draft`（写作段） | 5 部分 md + facts_ledger + 附图三件套 → `--gate draft` 通过 |
 | 6. 审查 | `patent-review` | 审计/IPR 报告落盘并**向用户汇报问题清单**（第三处停顿：有问题时等用户决策）→ 用户自改或委托代改（代改走 patent-draft，留痕过 `--gate review`）→ 复审至无 high 项或用户豁免 |
-| 7. 终稿交付 | `patent-draft`（导出段） | `<题名>技术交底书.docx` → `--gate deliver` 通过后方可宣告完成 |
+| 7. 终稿交付 | `patent-draft`（导出段） | `<题名>技术交底书.docx` → `--gate deliver` 通过后方可宣告完成（manifest 有 `sensitive_map_path` 时必须带 `--sensitive-map`，缺省即 fail） |
+
+mine-origin run：步骤 2 由 `patent-mine` 完成（内含 patent-sanitize 强制卡点），manifest 记 `research_origin: mine`，其余步骤不变。vault-origin run：步骤 2-3 由 `vault.py pick-direction` 的快照复用完成。
 
 编排纪律：
 
 1. 门禁未过不得进入下一步；失败先自动整改重跑（如换词重检），不把失败甩给用户。
 2. 默认停顿只有三处：开局首问、方向收敛、**审查汇报后等用户决策修改**（审查零问题时第三处自动跳过）；除此**不得增加默认等待**——背景包就绪且风格工件可用即自动进入写作，用户显式要求逐块确认时才逐块停。修改权在用户：审查发现的问题由用户决定自改、委托代改或豁免（豁免记入 `user_confirmations`）。
-3. 每步完成后更新 run manifest：`current_step`、`last_passed_gate`、工件路径、`user_confirmations`（只记真实发生的用户决策）。
+3. 每步完成后更新 run manifest：`current_step`、`last_passed_gate`、工件路径、`user_confirmations`（只记真实发生的用户决策）；vault 存在时顺带 `vault.py update-case`。
 4. 交接字段要求见 [references/HANDOFF_CONTRACT.md](references/HANDOFF_CONTRACT.md)。
 
 ## 门禁命令速查

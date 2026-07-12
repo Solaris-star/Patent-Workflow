@@ -4,18 +4,29 @@
 
 由旧版单体 patent-workflow（6 个互相耦合的 skill、三处重复定义、强依赖外部 CLI）重构而来，2026-07 重构目标：职责单一、依赖可选、宿主中立。旧版本机备份在 `_backup_20260708/`；更早的 orchestrator/executor 架构版本（v5）沉淀在 `_legacy/`，其 CNIPA 检索工具已提取为活资产（见下）。
 
-## 家族结构（8 个 skill）
+## 家族结构（12 个 skill）
 
 ```
 patent                总路由 + 全流程编排 + 门禁脚本 + run manifest
 ├── patent-research       调研（零依赖版：多子代理并行 + 宿主内置搜索）
 ├── patent-research-cli   调研（增强版：smart-search CLI 驱动，装了自动优先）
+├── patent-mine           存量项目反向挖掘（七维框架 + 三问否决 + 强制脱敏出管线）
+├── patent-vault          选题库与多案管理（方向池/题名撞车检测/案件状态/交付历史）
 ├── patent-prior-art      专利检索 + 验证 + 背景包/IPR 审查包（国知局主路径）
 ├── patent-style          模板解析 + 风格提取 + 初始化层缓存（一次初始化长期复用）
 ├── patent-draft          5 部分分块写作 + 附图三件套 + docx 出稿 + 交付检查
 ├── patent-review         四视角对抗审查（一致性/IPR/技术/语言），只审不改、汇报后用户决策
-└── patent-deslop         专利文本去 AI 味（独立随叫随到）
+├── patent-deslop         专利文本去 AI 味（独立随叫随到）
+├── patent-sanitize       脱敏（build-map/apply/audit 三模式 + 交付门禁确定性防泄密）
+└── patent-oa             审查意见答复辅助（三步法论证工作稿，非法律意见）
 ```
+
+**数据位**（与代码分离，deploy 镜像碰不到）：
+
+| 位置 | 内容 |
+|---|---|
+| `~/.patent-vault/` | 跨 workspace 全局索引：方向池、案件登记、题名库、research 快照 |
+| `<源项目>/.patent-private/` | 含密区：sensitive_map、挖掘原始产物、脱敏日志。**三不原则：不进 git、不进 run workspace、不进交付目录** |
 
 共享真源（`skills/patent/references/`）：
 
@@ -102,7 +113,7 @@ prior-art 门禁自动采用 `artifacts/prior_art/relevance_terms.json`（由 pa
 **Claude Code**（本机）：
 
 ```powershell
-pwsh -File deploy.ps1          # 同步 8 个 skill 到 ~/.claude/skills/
+pwsh -File deploy.ps1          # 同步 12 个 skill 到 ~/.claude/skills/ + 8 个 agent 到 ~/.claude/agents/
 pwsh -File deploy.ps1 -DryRun  # 预览
 ```
 

@@ -18,6 +18,13 @@
 - `style_profile.md` 就绪 / 复用命中 / `reference_patent_not_provided = true`
 - `initialization_reused` 已记录
 
+## 存量挖掘（patent-mine）→ 方向收敛
+
+- `phase_02_research_pack.json`（脱敏后同构产出）已落盘且 `--gate research` 通过
+- `sensitive_map_path` 已写入 manifest（`confirmed_by_user: true`）
+- `validate_sanitize.py` 对 pack 过检通过
+- 含密件（mining_raw / sanitize_log）均在源项目 `.patent-private/`，未进 workspace
+
 ## 调研（patent-research / -cli）→ 方向收敛
 
 - `phase_02_research_pack.json` 已落盘且 `--gate research` 通过
@@ -30,6 +37,7 @@
 
 - `selected_direction`（用户确认）
 - `working_title`（工作题名，≤ 25 字）
+- vault 存在时：撞车检测已执行且结论已向用户明示；`vault_case_id` 已登记（可选字段）
 
 ## 查新 → 写作（patent-draft）
 

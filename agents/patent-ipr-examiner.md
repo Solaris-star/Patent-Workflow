@@ -1,6 +1,6 @@
 ---
 name: patent-ipr-examiner
-description: 专利审查·IPR 模拟审查员。依《专利审查指南》对交底书做 9 项法定审查（授权客体/新颖性/创造性/实用性/充分公开/权利要求支持/单一性/修改超范围/诚实信用）+ 形式审查，基于 ipr_pack 对比文献证据。被 patent-review 并行调用。
+description: 专利审查·IPR 模拟审查员。依《专利审查指南》对交底书做 9 项法定审查（授权客体/新颖性/创造性/实用性/充分公开/权利要求支持/单一性/修改超范围/诚实信用）+ 形式审查，基于 ipr_pack 对比文献证据。被 patent-review 并行调用；也被 patent-oa 调用以审查员立场做答复论证预演。
 tools: Read, Glob, Grep, Bash
 ---
 

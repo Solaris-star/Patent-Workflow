@@ -104,7 +104,7 @@ description: |
 前置：全流程中须 `--gate review` 已通过；独立使用（用户只要出稿）时提示未审查风险后可继续。
 
 1. **合并**：按序拼接 5 个 part，附图说明保留每图的 Mermaid 代码块；插入正文图引用。
-2. **生成 docx**（能力梯度）：宿主 docx 能力（如 Claude Code 的 docx skill / python-docx / pandoc，按可用性择一）；标题样式统一，附图图片真实嵌入对应位置。
+2. **生成 docx**（能力梯度）：首选内置脚本 `python <patent-skill-dir>/scripts/generate_docx.py <合并版.md> <输出.docx>`（CN 标准排版：正文宋体/标题黑体/A4/自动嵌图，依赖 python-docx）；不可用时降级宿主 docx 能力 / pandoc。标题样式统一，附图图片真实嵌入对应位置。
 3. **命名**：`<最终题名>技术交底书.docx`，题名来自 run manifest 的 `final_title`，禁止占位名。
 4. **交付结构**：交付根目录唯一正式 docx + `附图/`（三件套）+ `artifacts/`（过程件下沉）；旧版/修订版/`bak`/`tmp`/评价件 docx 全部清理，过程性 .md 默认保留在 `artifacts/` 供追溯（用户要求洁净交付时归档进 `artifacts/archive/`）。
 5. **健康检查门禁**：
@@ -112,4 +112,5 @@ description: |
    python <patent-skill-dir>/scripts/run_phase_gates.py --gate deliver --workspace . --deliver-dir "<交付目录>" --patent-title "<最终题名>" --manifest artifacts/run_manifest.md
    ```
    自动校验：文件名匹配、docx `word/media/` 非空（图真嵌入）、审计/IPR 报告存在、图三件套齐全。未过先自查修复重跑。
+   **涉密 run**（manifest 声明了 `sensitive_map_path`）：命令必须追加 `--sensitive-map <该路径>`，否则门禁直接 fail（声明即强制）；建议交付前先跑一次 `patent-sanitize` audit 人工过目。
 6. **可选 IM 交付**：用户经 Discord/飞书等渠道沟通时，发送终稿 docx + 「一致性评分 + IPR 评分 + Top3 风险」摘要。
