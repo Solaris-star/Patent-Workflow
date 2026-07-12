@@ -27,6 +27,7 @@ Exit codes:
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -98,6 +99,20 @@ def _patch_manifest(manifest_path: Path, summary_json: str) -> None:
     manifest_path.write_text(new_text, encoding="utf-8")
 
 
+def _manifest_declared_sensitive_map(manifest_path: Path) -> str | None:
+    """Return non-empty sensitive_map_path declared in the run manifest, else None."""
+    if not manifest_path.exists():
+        return None
+    text = manifest_path.read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"^\s*-\s*`sensitive_map_path`\s*:\s*([^#\n]*)", text, flags=re.MULTILINE)
+    if not m:
+        return None
+    v = m.group(1).strip()
+    if v in {"", "<sensitive_map_path>", "TBD", "TODO", "none", "null"}:
+        return None
+    return v
+
+
 def _artifact_paths(ws: Path) -> dict:
     return {
         "research_pack": ws / "artifacts" / "research" / "phase_02_research_pack.json",
@@ -113,7 +128,8 @@ def _artifact_paths(ws: Path) -> dict:
     }
 
 
-def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | None, manifest: str | None) -> list[dict]:
+def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | None, manifest: str | None,
+              sensitive_map: str | None = None) -> list[dict]:
     ap = _artifact_paths(ws)
     runs: list[dict] = []
 
@@ -161,6 +177,41 @@ def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | 
             return []
         if manifest:
             runs.append(_run(["python", str(SCRIPTS_DIR / "assert_output_dir_in_manifest.py"), manifest]))
+        # Sanitize gate: run when --sensitive-map given; if the manifest declares a
+        # sensitive_map_path but the CLI omitted --sensitive-map, fail hard instead of
+        # silently skipping the leak check.
+        if sensitive_map:
+            runs.append(
+                _run(
+                    [
+                        "python",
+                        str(SCRIPTS_DIR / "validate_sanitize.py"),
+                        "--map",
+                        sensitive_map,
+                        "--scan-dir",
+                        deliver_dir,
+                    ]
+                )
+            )
+        elif manifest:
+            declared = _manifest_declared_sensitive_map(Path(manifest))
+            if declared:
+                now = datetime.now(timezone.utc).isoformat()
+                runs.append(
+                    {
+                        "cmd": ["<policy>", "sensitive-map-declared-but-not-checked"],
+                        "exitCode": 2,
+                        "stdout": "",
+                        "stderr": (
+                            f"run manifest declares sensitive_map_path = {declared} "
+                            "but deliver gate was invoked without --sensitive-map; "
+                            "re-run with: --sensitive-map <path>"
+                        ),
+                        "startedAt": now,
+                        "finishedAt": now,
+                        "passed": False,
+                    }
+                )
         runs.append(
             _run(
                 [
@@ -195,6 +246,11 @@ def main() -> int:
     # deliver gate extras
     ap.add_argument("--deliver-dir", help="Delivery dir (deliver gate)")
     ap.add_argument("--patent-title", help="Final patent title (deliver gate)")
+    ap.add_argument(
+        "--sensitive-map",
+        help="Path to sensitive_map.json (deliver gate). Mandatory when the run manifest "
+        "declares a non-empty sensitive_map_path — omitting it then fails the gate.",
+    )
 
     ap.add_argument("--out", help="Optional output path for JSON summary")
     ap.add_argument("--manifest", help="Optional markdown run manifest path to patch JSON block")
@@ -207,7 +263,7 @@ def main() -> int:
     gate_results: list[dict] = []
 
     for g in gates:
-        runs = _run_gate(g, ws, args.deliver_dir, args.patent_title, args.manifest)
+        runs = _run_gate(g, ws, args.deliver_dir, args.patent_title, args.manifest, args.sensitive_map)
 
         if g == "deliver" and not runs and args.gate == "all":
             gate_results.append({"gate": g, "skipped": True, "reason": "missing --deliver-dir/--patent-title"})
