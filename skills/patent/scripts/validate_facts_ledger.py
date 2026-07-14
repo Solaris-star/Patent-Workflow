@@ -18,6 +18,7 @@ Exit codes:
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,6 +58,7 @@ def main() -> int:
     ap.add_argument("--base-dir", default=".", help="Base directory for resolving relative artifact paths")
     ap.add_argument("--output", help="Optional path to write validation summary JSON")
     ap.add_argument("--require-docx-visible-mermaid", action="store_true", help="Require mermaid_source_embedded_in_docx == true for all figures")
+    ap.add_argument("--check-draft-format", action="store_true", help="Check title length ≤22 and part_04 heading")
     args = ap.parse_args()
 
     now = datetime.now(timezone.utc)
@@ -141,6 +143,25 @@ def main() -> int:
         if args.require_docx_visible_mermaid:
             flag = fig.get("mermaid_source_embedded_in_docx")
             _require(flag is True, f"figure_registry[{i}].mermaid_source_embedded_in_docx must be true", errors)
+
+    if args.check_draft_format:
+        # Rule: title ≤22 chars
+        manifest_path = base_dir / "artifacts" / "run_manifest.md"
+        if manifest_path.exists():
+            manifest_text = manifest_path.read_text(encoding="utf-8")
+            for field in ("final_title", "working_title"):
+                m = re.search(rf"`{field}`:\s*(.+)", manifest_text)
+                if m:
+                    title = m.group(1).strip()
+                    if title:
+                        _require(len(title) <= 22, f"{field} exceeds 22 chars: '{title}' ({len(title)}字)", errors)
+                        break
+
+        # Rule: part_04 heading must contain "附图说明"
+        part04_path = base_dir / "artifacts" / "draft" / "part_04_附图说明.md"
+        if part04_path.exists():
+            part04_text = part04_path.read_text(encoding="utf-8")
+            _require("## 四、附图说明" in part04_text, "part_04 heading must be '## 四、附图说明' (got non-standard heading)", errors)
 
     summary = {
         "validator": "validate_facts_ledger.py",

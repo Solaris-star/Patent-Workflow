@@ -210,6 +210,7 @@ def _run_gate(gate: str, ws: Path, deliver_dir: str | None, patent_title: str | 
                     "--base-dir",
                     str(ws),
                     "--require-docx-visible-mermaid",
+                    "--check-draft-format",
                 ]
             )
         )
