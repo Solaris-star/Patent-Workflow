@@ -143,22 +143,16 @@ def main() -> int:
                     figure_ok = False
                     continue
                 art = fig.get("artifacts") or {}
-                for key in ("image", "mmd"):
+                # mmd is required (editable source). image is required for docx embed.
+                for key in ("mmd", "image"):
                     rel = art.get(key) or ""
                     miss = _figure_missing(rel) if rel else f"figure[{idx}].{key}_missing"
                     if miss:
                         figure_ok = False
                         missing.append(miss)
-                editable = art.get("editable") or []
-                editable_ok = any(
-                    isinstance(p, str) and p.strip() and _figure_missing(p.strip()) is None
-                    for p in (editable if isinstance(editable, list) else [])
-                )
-                if not editable_ok:
-                    figure_ok = False
-                    missing.append(f"figure[{idx}].editable_missing")
+                # editable/drawio is optional; mmd is the editable source
 
-            _check(checks, "figure artifacts complete in deliver dir (image+mmd+editable)", figure_ok,
+            _check(checks, "figure artifacts complete in deliver dir (mmd+image)", figure_ok,
                    details_ok="ok", details_fail="missing figure artifacts in deliver dir")
     else:
         figure_ok = False

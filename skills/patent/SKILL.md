@@ -56,7 +56,7 @@ description: |
 | 2. 调研选题 | `patent-research(-cli)` | `phase_02_research_pack.json` → `--gate research` 通过 |
 | 3. 方向收敛 | 本 skill 主持 | 用户先确认**技术方向**（第二处默认停顿）。此步只写 `selected_direction`；可挂工作题名种子 `working_title` 供查新扩词，**终稿题名 `final_title` 默认在查新后、写作前再定**（依据背景包差异点与 `title_pattern_samples`）。用户本步主动给终稿题名时才提前定题。vault 存在时：有工作/终稿题名再 `vault.py check-title`；方向确认后可先 `register-case`（题名可用种子，终稿后再 update） |
 | 4. 查新检索 | `patent-prior-art` | 以 `selected_direction` 为主目标检索；候选池 + 证据包 → `--gate prior-art` 通过。背景包放行后，若尚无 `final_title`，用 `major_differences` + `title_pattern_samples` 收敛终稿题名再进写作；**题名 ≤ 22 字**，口吻对齐已验证背景专利样例，禁堆叠术语长句 |
-| 5. 分块撰写 | `patent-draft`（写作段） | 5 部分 md + facts_ledger + 附图三件套 → `--gate draft` 通过 |
+| 5. 分块撰写 | `patent-draft`（写作段） | 5 部分 md + facts_ledger + 附图 mmd（part_04 内嵌）→ `--gate draft` 通过 |
 | 6. 审查 | `patent-review` | 审计/IPR 报告落盘并**向用户汇报问题清单**（第三处停顿：有问题时等用户决策）→ 用户自改或委托代改（代改走 patent-draft，留痕过 `--gate review`）→ 复审至无 high 项或用户豁免 |
 | 7. 终稿交付 | `patent-draft`（导出段） | `<题名>技术交底书.docx` → `--gate deliver` 通过后方可宣告完成（manifest 有 `sensitive_map_path` 时必须带 `--sensitive-map`，缺省即 fail） |
 

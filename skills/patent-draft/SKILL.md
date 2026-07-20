@@ -2,7 +2,7 @@
 name: patent-draft
 description: |
   专利交底书分块撰写与交付出稿引擎。从 5 部分分块写作（技术领域/背景技术/发明内容/
-  附图说明/具体实施方式）到附图三件套、docx 合并嵌图、命名清理、交付健康检查的完整链路。
+  附图说明/具体实施方式）到附图 mmd 内嵌、docx 合并嵌图、命名清理、交付健康检查的完整链路。
   触发方式：/patent-draft、「写交底书」「分块撰写」「生成docx」「导出终稿」「出附图」
   「修改第X部分」。可独立使用（含只导出场景：已有 md 帮我出 docx），
   也被 patent 全流程编排在写作与交付两步调用。
@@ -12,7 +12,7 @@ description: |
 
 两段式入口，按用户意图或流程位置进入：
 
-- **写作段**：分块写 5 部分 + facts_ledger + 附图三件套 → `--gate draft`
+- **写作段**：分块写 5 部分 + facts_ledger + 附图 mmd（内嵌 part_04）→ `--gate draft`
 - **导出段**：docx 合并 + 嵌图 + 命名 + 清理 → `--gate deliver`（全流程中在 patent-review 通过后执行）
 
 交付细则清单见 [references/DELIVERY_CHECKLIST.md](references/DELIVERY_CHECKLIST.md) 与 [references/FIGURE_DELIVERY_CHECKLIST.md](references/FIGURE_DELIVERY_CHECKLIST.md)，宣告完成前逐项过。
@@ -71,9 +71,8 @@ description: |
     "figure_id": "图1",
     "caption": "系统架构图",
     "artifacts": {
-      "image": "附图/fig_01_系统架构.png",
       "mmd": "附图/fig_01_系统架构.mmd",
-      "editable": ["附图/fig_01_系统架构.drawio"]
+      "image": "附图/fig_01_系统架构.png"
     },
     "mermaid_source_embedded_in_docx": true
   }],
@@ -81,17 +80,17 @@ description: |
 }
 ```
 
-每写/改一个 part 同步更新，不得最后补账。门禁 `--gate draft` 校验：三区非空、图三件套文件真实存在、mermaid 内嵌标记为 true。
+每写/改一个 part 同步更新，不得最后补账。门禁 `--gate draft` 校验：三区非空、图的 mmd（可编辑源）真实存在、mermaid 内嵌标记为 true；png/svg 用于 docx 嵌图，有声明则必须存在。
 
-### 附图三件套（写作段内完成，零 CLI 依赖可达成）
+### 附图要求（写作段内完成）
 
-每张图三个文件同前缀存放 `附图/`（`fig_01_XXX.*`），禁止另设 final/、drawings/ 等目录：
+每张图以同前缀存放 `附图/`（`fig_01_XXX.*`），禁止另设 final/、drawings/ 等目录：
 
-1. **`.mmd`**（逻辑源，必须）：`graph TD/LR` 开头，节点 ID 用字母数字（A1、B2），避免 `subgraph`/`style`（ProcessOn 兼容）；同时以可见代码块嵌入 part_04。
-2. **可编辑源**（必须，`.drawio` 或 `.vsdx` 至少其一，与门禁口径一致；默认产 `.drawio`）：**由模型直接生成 draw.io XML 文件**（mxGraph 格式为公开纯文本，无需任何 CLI）；节点布局给出明确坐标，白底黑字。
-3. **`.png`/`.svg`**（嵌图文件，必须）：能力梯度——本机 `mmdc` 可用（`mmdc -i fig.mmd -o fig.png -b white`）→ 优先；不可用则从 `.drawio`/在线渲染兜底；全部不可行时明确告知用户需手工渲染这一步，**不得静默跳过**。
+1. **`.mmd`（必须，且即是可编辑源）**：`graph TD/LR` 开头，节点 ID 用字母数字（A1、B2），避免 `subgraph`/`style`（ProcessOn 兼容）；**同时以可见代码块嵌入 part_04**。不要求额外 `.drawio` / `.vsdx`。
+2. **`.png`/`.svg`（docx 嵌图用，推荐/交付需要）**：本机 `mmdc` 可用则 `mmdc -i fig.mmd -o fig.png -b white`；不可用时可用其他渲染兜底。全部不可行时明确告知用户需手工渲染，**不得静默跳过**。
+3. **可选 editable 字段**：facts_ledger 中 `artifacts.editable` 可省略；若填写，则所列路径必须真实存在。
 
-复杂流程图（多分支/多回路）不信任 Mermaid 自动布局的成品质量：以 `.drawio` 为成品真源导出图片，`.mmd` 仅作逻辑兜底。图号、文件名、正文「如图X所示」、part_04 描述四者一一对应（联动规则见 FIGURE_DELIVERY_CHECKLIST）。
+图号、mmd 文件名、正文「如图X所示」、part_04 描述四者一一对应（联动规则见 FIGURE_DELIVERY_CHECKLIST）。
 
 ### 联动修改与版本
 
@@ -106,11 +105,11 @@ description: |
 1. **合并**：按序拼接 5 个 part，附图说明保留每图的 Mermaid 代码块；插入正文图引用。
 2. **生成 docx**（能力梯度）：首选内置脚本 `python <patent-skill-dir>/scripts/generate_docx.py <合并版.md> <输出.docx>`（CN 标准排版：正文宋体/标题黑体/A4/自动嵌图，依赖 python-docx）；不可用时降级宿主 docx 能力 / pandoc。标题样式统一，附图图片真实嵌入对应位置。
 3. **命名**：`<最终题名>技术交底书.docx`，题名来自 run manifest 的 `final_title`，禁止占位名。
-4. **交付结构**：交付根目录唯一正式 docx + `附图/`（三件套）+ `artifacts/`（过程件下沉）；旧版/修订版/`bak`/`tmp`/评价件 docx 全部清理，过程性 .md 默认保留在 `artifacts/` 供追溯（用户要求洁净交付时归档进 `artifacts/archive/`）。
+4. **交付结构**：交付根目录唯一正式 docx + `附图/`（mmd + 嵌图 png/svg）+ `artifacts/`（过程件下沉）；旧版/修订版/`bak`/`tmp`/评价件 docx 全部清理，过程性 .md 默认保留在 `artifacts/` 供追溯（用户要求洁净交付时归档进 `artifacts/archive/`）。
 5. **健康检查门禁**：
    ```
    python <patent-skill-dir>/scripts/run_phase_gates.py --gate deliver --workspace . --deliver-dir "<交付目录>" --patent-title "<最终题名>" --manifest artifacts/run_manifest.md
    ```
-   自动校验：文件名匹配、docx `word/media/` 非空（图真嵌入）、审计/IPR 报告存在、图三件套齐全。未过先自查修复重跑。
+   自动校验：文件名匹配、docx `word/media/` 非空（图真嵌入）、审计/IPR 报告存在、附图 mmd+image 齐全。未过先自查修复重跑。
    **涉密 run**（manifest 声明了 `sensitive_map_path`）：命令必须追加 `--sensitive-map <该路径>`，否则门禁直接 fail（声明即强制）；交付前**必须**先跑一次 `patent-sanitize` audit 并人工过目——词表门禁查不出同义改写等语义级泄密，人工过目是最后一道闸。
 6. **可选 IM 交付**：用户经 Discord/飞书等渠道沟通时，发送终稿 docx + 「一致性评分 + IPR 评分 + Top3 风险」摘要。

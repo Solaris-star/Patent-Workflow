@@ -43,7 +43,7 @@
 - `style_tone_score`:                  # 行文风格一致性（专利感、避免汇报腔/AI腔）
 - `deliverable_structure_score`:       # 交付结构一致性（docx/附图工件/artifacts 放置与命名）
 - `evidence_citation_score`:           # 背景专利引用/证据链标注一致性
-- `figure_artifact_score`:             # 附图工件完整性（png/svg + mmd + drawio/vsdx，且 docx 真嵌图）
+- `figure_artifact_score`:             # 附图工件完整性（mmd 必有且内嵌；png/svg 用于嵌图）
 
 ### Top 问题（必须）
 

@@ -5,8 +5,9 @@ This validator is used by patent-workflow to gate Phase 8/11.
 
 It validates:
 - ledger structure (terminology, figure_registry, constraints/effects)
-- figure artifact completeness: image + mmd + editable (drawio/vsdx at least 1)
-- (optional) a declared flag that Mermaid source is embedded visibly in docx after figure notes
+- figure artifact completeness: mmd is required and is the editable source;
+  image (png/svg) is required for docx embedding when present in artifacts
+- (optional) a declared flag that Mermaid source is embedded visibly in part_04 / docx
 
 Usage:
   python validate_facts_ledger.py artifacts/draft/facts_ledger.json
@@ -126,19 +127,31 @@ def main() -> int:
         mmd = (artifacts.get("mmd") or "").strip()
         editable = _as_list(artifacts.get("editable"))
 
-        if not _exists(img, base_dir):
+        # mmd is the sole required editable source
+        if not mmd:
             missing_artifacts += 1
-            errors.append(f"figure_registry[{i}] missing image artifact: {img}")
-        if not _exists(mmd, base_dir):
+            errors.append(f"figure_registry[{i}] missing mmd artifact path")
+        elif not _exists(mmd, base_dir):
             missing_artifacts += 1
             errors.append(f"figure_registry[{i}] missing mmd artifact: {mmd}")
 
-        editable_ok = False
-        for p in editable:
-            if isinstance(p, str) and p.strip() and _exists(p.strip(), base_dir):
-                editable_ok = True
-                break
-        _require(editable_ok, f"figure_registry[{i}] missing editable artifact (drawio/vsdx): {editable}", errors)
+        # image is required only when declared; prefer declaring it for docx embed
+        if img and not _exists(img, base_dir):
+            missing_artifacts += 1
+            errors.append(f"figure_registry[{i}] missing image artifact: {img}")
+
+        # editable is optional; if provided, at least one path must exist.
+        # Convention: mmd itself is the editable source — no drawio/vsdx required.
+        if editable:
+            editable_ok = any(
+                isinstance(p, str) and p.strip() and _exists(p.strip(), base_dir)
+                for p in editable
+            )
+            _require(
+                editable_ok,
+                f"figure_registry[{i}] editable paths declared but none exist: {editable}",
+                errors,
+            )
 
         if args.require_docx_visible_mermaid:
             flag = fig.get("mermaid_source_embedded_in_docx")
