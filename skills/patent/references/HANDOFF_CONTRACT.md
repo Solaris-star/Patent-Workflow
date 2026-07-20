@@ -37,7 +37,7 @@
 ## 方向收敛 → 查新（patent-prior-art）
 
 - `selected_direction`（用户确认）
-- `working_title`（工作题名，≤ 25 字）
+- `working_title`（工作题名，≤ 22 字；与 draft 格式硬门禁一致）
 - vault 存在时：撞车检测已执行且结论已向用户明示；`vault_case_id` 已登记（可选字段）
 
 ## 查新 → 写作（patent-draft）
