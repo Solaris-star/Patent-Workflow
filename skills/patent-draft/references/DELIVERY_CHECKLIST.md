@@ -37,8 +37,8 @@
 ## 六、附图与交付目录
 
 - [ ] 交付目录为用户本轮明确指定的绝对路径（未指定时不得猜测）。
-- [ ] 附图 mmd + 嵌图齐全（详见 FIGURE_DELIVERY_CHECKLIST；mmd 即编辑源，不强制 drawio）。
-- [ ] 终稿 docx `word/media/` 非空（图片真嵌入）。
+- [ ] 附图 mmd 齐全并已写入 part_04 可见代码块（详见 FIGURE_DELIVERY_CHECKLIST；mmd 即编辑源）。
+- [ ] 终稿 docx **不嵌位图**（无 `![...](png/svg)`；不要求 `word/media` 非空）。
 - [ ] 交付根目录只保留唯一正式 docx；旧版、修订版、`bak`、`trialbak`、`tmp`、评价件已清理。
 - [ ] 过程性文档已下沉 `artifacts/`，未与正式终稿并列。
 

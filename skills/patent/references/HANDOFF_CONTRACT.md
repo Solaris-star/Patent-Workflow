@@ -49,7 +49,7 @@
 ## 写作 → 审查（patent-review）
 
 - 5 个 part md 完成 + `facts_ledger.json` 落盘且 `--gate draft` 通过
-- 附图 mmd（可编辑源）文件真实存在；docx 嵌图用 image 若声明则须存在；不强制 drawio/vsdx
+- 附图 mmd（可编辑源）文件真实存在并已写入 part_04 可见代码块；**不要求** png/svg/drawio，**不要求** docx 嵌位图
 
 ## 审查 → 终稿导出
 

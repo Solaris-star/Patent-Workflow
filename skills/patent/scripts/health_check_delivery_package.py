@@ -87,15 +87,17 @@ def main() -> int:
     if not final_docx.exists():
         missing.append(str(final_docx))
 
-    # docx media embed check
-    has_media = _docx_has_media(final_docx)
-    _check(
-        checks,
-        "docx has embedded images (word/media non-empty)",
-        has_media,
-        details_ok="embedded media found",
-        details_fail="no embedded media found (word/media empty or docx unreadable)",
-    )
+    # docx media embed check is intentionally NOT required.
+    # Delivery default: mermaid source only; no bitmap embedding.
+    if final_docx.exists():
+        has_media = _docx_has_media(final_docx)
+        _check(
+            checks,
+            "docx bitmap embed not required (word/media may be empty)",
+            True,
+            details_ok=("word/media empty — ok" if not has_media else "word/media present but not required"),
+            details_fail="",
+        )
 
     # reports exist
     _check(checks, "consistency report exists", _exists(args.consistency_report), details_ok=args.consistency_report, details_fail=args.consistency_report)
@@ -143,16 +145,21 @@ def main() -> int:
                     figure_ok = False
                     continue
                 art = fig.get("artifacts") or {}
-                # mmd is required (editable source). image is required for docx embed.
-                for key in ("mmd", "image"):
-                    rel = art.get(key) or ""
-                    miss = _figure_missing(rel) if rel else f"figure[{idx}].{key}_missing"
-                    if miss:
+                # mmd is required (editable source). image/editable are optional.
+                mmd_rel = art.get("mmd") or ""
+                miss = _figure_missing(mmd_rel) if mmd_rel else f"figure[{idx}].mmd_missing"
+                if miss:
+                    figure_ok = False
+                    missing.append(miss)
+                # If image is declared, it must exist in deliver dir; but image is never required.
+                img_rel = art.get("image") or ""
+                if img_rel:
+                    miss_img = _figure_missing(img_rel)
+                    if miss_img:
                         figure_ok = False
-                        missing.append(miss)
-                # editable/drawio is optional; mmd is the editable source
+                        missing.append(miss_img)
 
-            _check(checks, "figure artifacts complete in deliver dir (mmd+image)", figure_ok,
+            _check(checks, "figure artifacts complete in deliver dir (mmd required; image optional)", figure_ok,
                    details_ok="ok", details_fail="missing figure artifacts in deliver dir")
     else:
         figure_ok = False

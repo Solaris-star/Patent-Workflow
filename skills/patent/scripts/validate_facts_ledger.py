@@ -6,7 +6,7 @@ This validator is used by patent-workflow to gate Phase 8/11.
 It validates:
 - ledger structure (terminology, figure_registry, constraints/effects)
 - figure artifact completeness: mmd is required and is the editable source;
-  image (png/svg) is required for docx embedding when present in artifacts
+  image/editable are optional and never required for draft/deliver gates
 - (optional) a declared flag that Mermaid source is embedded visibly in part_04 / docx
 
 Usage:
@@ -135,13 +135,12 @@ def main() -> int:
             missing_artifacts += 1
             errors.append(f"figure_registry[{i}] missing mmd artifact: {mmd}")
 
-        # image is required only when declared; prefer declaring it for docx embed
+        # image/editable are optional; if declared, paths must exist.
+        # Default delivery does NOT embed bitmaps — only mmd source is required.
         if img and not _exists(img, base_dir):
             missing_artifacts += 1
             errors.append(f"figure_registry[{i}] missing image artifact: {img}")
 
-        # editable is optional; if provided, at least one path must exist.
-        # Convention: mmd itself is the editable source — no drawio/vsdx required.
         if editable:
             editable_ok = any(
                 isinstance(p, str) and p.strip() and _exists(p.strip(), base_dir)
