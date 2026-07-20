@@ -54,8 +54,8 @@ description: |
 |---|---|---|
 | 1. 初始化层（可选） | `patent-style` | 模板/风格工件；冷启动或换模板时才跑，否则复用缓存 |
 | 2. 调研选题 | `patent-research(-cli)` | `phase_02_research_pack.json` → `--gate research` 通过 |
-| 3. 方向收敛 | 本 skill 主持 | 用户确认方向与题名（第二处默认停顿）；vault 存在时先 `vault.py check-title` 撞车检测（模型语义终裁），结论向用户明示后定题，随后 `register-case` |
-| 4. 查新检索 | `patent-prior-art` | 候选池 + 证据包 → `--gate prior-art` 通过，背景包放行写作 |
+| 3. 方向收敛 | 本 skill 主持 | 用户先确认**技术方向**（第二处默认停顿）。此步只写 `selected_direction`；可挂工作题名种子 `working_title` 供查新扩词，**终稿题名 `final_title` 默认在查新后、写作前再定**（依据背景包差异点与 `title_pattern_samples`）。用户本步主动给终稿题名时才提前定题。vault 存在时：有工作/终稿题名再 `vault.py check-title`；方向确认后可先 `register-case`（题名可用种子，终稿后再 update） |
+| 4. 查新检索 | `patent-prior-art` | 以 `selected_direction` 为主目标检索；候选池 + 证据包 → `--gate prior-art` 通过。背景包放行后，若尚无 `final_title`，用 `major_differences` + `title_pattern_samples` 收敛终稿题名再进写作 |
 | 5. 分块撰写 | `patent-draft`（写作段） | 5 部分 md + facts_ledger + 附图三件套 → `--gate draft` 通过 |
 | 6. 审查 | `patent-review` | 审计/IPR 报告落盘并**向用户汇报问题清单**（第三处停顿：有问题时等用户决策）→ 用户自改或委托代改（代改走 patent-draft，留痕过 `--gate review`）→ 复审至无 high 项或用户豁免 |
 | 7. 终稿交付 | `patent-draft`（导出段） | `<题名>技术交底书.docx` → `--gate deliver` 通过后方可宣告完成（manifest 有 `sensitive_map_path` 时必须带 `--sensitive-map`，缺省即 fail） |
@@ -65,7 +65,7 @@ mine-origin run：步骤 2 由 `patent-mine` 完成（内含 patent-sanitize 强
 编排纪律：
 
 1. 门禁未过不得进入下一步；失败先自动整改重跑（如换词重检），不把失败甩给用户。
-2. 默认停顿只有三处：开局首问、方向收敛、**审查汇报后等用户决策修改**（审查零问题时第三处自动跳过）；除此**不得增加默认等待**——背景包就绪且风格工件可用即自动进入写作，用户显式要求逐块确认时才逐块停。修改权在用户：审查发现的问题由用户决定自改、委托代改或豁免（豁免记入 `user_confirmations`）。
+2. 默认停顿只有三处：开局首问、方向收敛（确认技术方向；终稿题名可延后）、**审查汇报后等用户决策修改**（审查零问题时第三处自动跳过）。查新后若需定 `final_title`，可简短确认一次题名后继续，不另开第四处默认长停。除此**不得增加默认等待**——背景包就绪、终稿题名已定（或用户授权用工作题名直接写）、风格工件可用即自动进入写作；用户显式要求逐块确认时才逐块停。修改权在用户：审查发现的问题由用户决定自改、委托代改或豁免（豁免记入 `user_confirmations`）。
 3. 每步完成后更新 run manifest：`current_step`、`last_passed_gate`、工件路径、`user_confirmations`（只记真实发生的用户决策）；vault 存在时顺带 `vault.py update-case`。
 4. 交接字段要求见 [references/HANDOFF_CONTRACT.md](references/HANDOFF_CONTRACT.md)。
 
