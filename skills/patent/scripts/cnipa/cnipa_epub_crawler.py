@@ -188,13 +188,22 @@ def search_epub_keyword_with_page(
 
 
 def _launch_browser(p: Playwright) -> Browser:
-    return p.chromium.launch(
-        headless=not _headed(),
-        args=[
-            "--disable-blink-features=AutomationControlled",
-            "--no-sandbox",
-        ],
-    )
+    try:
+        return p.chromium.launch(
+            headless=not _headed(),
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+            ],
+        )
+    except Exception as e:
+        msg = str(e).lower()
+        if "executable" in msg or "browser" in msg or "chromium" in msg:
+            raise RuntimeError(
+                "Chromium binary not found. Run: python -m playwright install chromium"
+                " (installs headless shell, ~150MB, not full browser)"
+            ) from e
+        raise
 
 
 def _new_context(browser: Browser) -> BrowserContext:

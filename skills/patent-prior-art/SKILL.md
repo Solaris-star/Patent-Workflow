@@ -28,11 +28,11 @@ description: |
 
 | 优先级 | 通道 | 说明 |
 |---|---|---|
-| **1（主路径首选）** | **内置 CNIPA 检索脚本** | `python <patent-skill-dir>/scripts/cnipa/cnipa_epub_search.py 词1 词2 …`（脚本化 Playwright 查询国知局官方公布站 epub.cnipa.gov.cn）。stdout 单行 `EPUB_HITS_JSON:` + JSON 数组（标题/公开号/摘要，按公开号去重）。检索词一段一查按空白拆分，语义化检索单位须在生成命令前拆好。官方源，**检索即验证**（`verificationSource: cnipa`）。前置：`pip install playwright` + `python -m playwright install chromium`；WAF 等待可调 `EPUB_WAF_MAX_WAIT_SEC` |
+| **1（主路径首选）** | **内置 CNIPA 检索脚本** | `python <patent-skill-dir>/scripts/cnipa/cnipa_epub_search.py 词1 词2 …`（脚本化 Playwright 查询国知局官方公布站 epub.cnipa.gov.cn）。stdout 单行 `EPUB_HITS_JSON:` + JSON 数组（标题/公开号/摘要，按公开号去重）。检索词一段一查按空白拆分，语义化检索单位须在生成命令前拆好。官方源，**检索即验证**（`verificationSource: cnipa`）。**前置检查**：先跑 `python -c "import playwright; from playwright.sync_api import sync_playwright; p=sync_playwright().__enter__(); p.chromium.launch(headless=True).close(); p.__exit__(None,None,None)"` 确认 playwright + chromium 可用。若失败再按情况执行：缺 python 包则 `pip install playwright`，缺 chromium binary 则 `python -m playwright install chromium`（用 hermes venv 的 python，装的 headless shell 而非浏览器，不重复装完整 Chromium）。**已装过后不再重复安装**。WAF 等待可调 `EPUB_WAF_MAX_WAIT_SEC` |
 | 2（主路径备用） | 浏览器自动化现场操作国知局 | 脚本不可用（未装 playwright python 依赖）但有 playwright MCP / browser-cdp 时：打开国知局检索入口，输入检索式 → 收集命中 → 详情页取全字段，同为 `verificationSource: cnipa` |
 | 3（兜底） | 搜索发现 + Google Patents 验证 | 无任何浏览器能力时：smart-search 通用入口或宿主内置搜索发现候选（`site:patents.google.com` 限定词提高命中率），抓取 `patents.google.com/patent/CN…` 静态页逐条核验（`verificationSource: google_patents`） |
 
-执行要点：优先级 1 探测 = 脚本文件存在且 `python -c "import playwright"` 成功；遇验证码/WAF 长阻塞向用户说明（browser-cdp 复用登录态可基本免人机验证），不可静默跳过官方源——降级到 3 时必须在 `search_failures` 记录原因。
+执行要点：优先级 1 探测 = 先跑 `python -c "import playwright; from playwright.sync_api import sync_playwright; p=sync_playwright().__enter__(); p.chromium.launch(headless=True).close(); p.__exit__(None,None,None)"` 确认 playwright 包 + chromium binary 均可用（而非仅检查 import 包名）；遇验证码/WAF 长阻塞向用户说明（browser-cdp 复用登录态可基本免人机验证），不可静默跳过官方源——降级到 3 时必须在 `search_failures` 记录原因。
 
 ## 检索工作流
 

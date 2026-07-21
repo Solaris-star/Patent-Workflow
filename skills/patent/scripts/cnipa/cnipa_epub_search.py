@@ -105,11 +105,27 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         import playwright  # noqa: F401
+        from playwright.sync_api import sync_playwright
+
+        # 额外验证：chromium binary 是否实际可用
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            browser.close()
     except ImportError:
         print(
-            "ERROR: pip install -r tools/requirements-cnipa.txt && python -m playwright install chromium",
+            "ERROR: playwright python package not found. Run: pip install playwright",
             file=sys.stderr,
         )
+        return 1
+    except Exception as e:
+        msg = str(e).lower()
+        if "executable" in msg or "browser" in msg or "chromium" in msg:
+            print(
+                "ERROR: chromium binary not found. Run: python -m playwright install chromium",
+                file=sys.stderr,
+            )
+        else:
+            print("ERROR: playwright check failed:", e, file=sys.stderr)
         return 1
 
     from cnipa_epub_crawler import search_epub_keyword
