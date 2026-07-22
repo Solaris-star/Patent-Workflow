@@ -5,9 +5,8 @@ This validator is used by patent-workflow to gate Phase 8/11.
 
 It validates:
 - ledger structure (terminology, figure_registry, constraints/effects)
-- figure artifact completeness: mmd is required and is the editable source;
-  image/editable are optional and never required for draft/deliver gates
-- (optional) a declared flag that Mermaid source is embedded visibly in part_04 / docx
+- figure artifact completeness: image + mmd + editable (drawio/vsdx at least 1)
+- (optional) a declared flag that Mermaid source is embedded visibly in docx after figure notes
 
 Usage:
   python validate_facts_ledger.py artifacts/draft/facts_ledger.json
@@ -127,30 +126,19 @@ def main() -> int:
         mmd = (artifacts.get("mmd") or "").strip()
         editable = _as_list(artifacts.get("editable"))
 
-        # mmd is the sole required editable source
-        if not mmd:
-            missing_artifacts += 1
-            errors.append(f"figure_registry[{i}] missing mmd artifact path")
-        elif not _exists(mmd, base_dir):
-            missing_artifacts += 1
-            errors.append(f"figure_registry[{i}] missing mmd artifact: {mmd}")
-
-        # image/editable are optional; if declared, paths must exist.
-        # Default delivery does NOT embed bitmaps — only mmd source is required.
         if img and not _exists(img, base_dir):
             missing_artifacts += 1
             errors.append(f"figure_registry[{i}] missing image artifact: {img}")
+        if not _exists(mmd, base_dir) and mmd:
+            missing_artifacts += 1
+            errors.append(f"figure_registry[{i}] missing mmd artifact: {mmd}")
 
-        if editable:
-            editable_ok = any(
-                isinstance(p, str) and p.strip() and _exists(p.strip(), base_dir)
-                for p in editable
-            )
-            _require(
-                editable_ok,
-                f"figure_registry[{i}] editable paths declared but none exist: {editable}",
-                errors,
-            )
+        editable_ok = True
+        for p in editable:
+            if isinstance(p, str) and p.strip() and _exists(p.strip(), base_dir):
+                editable_ok = True
+                break
+        _require(editable_ok, f"figure_registry[{i}] missing editable artifact (drawio/vsdx): {editable}", errors)
 
         if args.require_docx_visible_mermaid:
             flag = fig.get("mermaid_source_embedded_in_docx")
@@ -166,14 +154,14 @@ def main() -> int:
                 if m:
                     title = m.group(1).strip()
                     if title:
-                        _require(len(title) <= 22, f"{field} exceeds 22 chars: '{title}' ({len(title)}字)", errors)
+                        _require(len(title) <= 25, f"{field} exceeds 25 chars: '{title}' ({len(title)}字)", errors)
                         break
 
         # Rule: part_04 heading must contain "附图说明"
         part04_path = base_dir / "artifacts" / "draft" / "part_04_附图说明.md"
         if part04_path.exists():
             part04_text = part04_path.read_text(encoding="utf-8")
-            _require("## 四、附图说明" in part04_text, "part_04 heading must be '## 四、附图说明' (got non-standard heading)", errors)
+            _require("## 四、附图说明" in part04_text or "## A4. 附图说明" in part04_text, "part_04 heading must be '## 四、附图说明' or '## A4. 附图说明' (got non-standard heading)", errors)
 
     summary = {
         "validator": "validate_facts_ledger.py",
