@@ -102,7 +102,7 @@ description: |
 前置：全流程中须 `--gate review` 已通过；独立使用（用户只要出稿）时提示未审查风险后可继续。**独立导出且来路文本未知时**（无 run manifest 的「已有 md 帮我出 docx」场景），先跑 `python <patent-skill-dir>/scripts/validate_sanitize.py --heuristics --files <输入.md>` 启发式扫一遍——命中 IP/URL/路径/邮箱即向用户警示可能含密，确认后再出稿。
 
 1. **合并**：按序拼接 5 个 part，附图说明**只保留**每图文字说明 + Mermaid 代码块；**禁止**插入 `![...](*.png|*.svg)` 或其它位图引用。
-2. **生成 docx**（能力梯度）：首选内置脚本 `python <patent-skill-dir>/scripts/generate_docx.py <合并版.md> <输出.docx>`（CN 标准排版：正文宋体/标题黑体/A4；mermaid 以等宽源码块写入，不嵌位图）；不可用时降级宿主 docx 能力 / pandoc。
+2. **生成 docx**（能力梯度）：首选内置脚本 `python <patent-skill-dir>/scripts/generate_docx.py <合并版.md> <输出.docx>`（CN 标准排版：正文等线/标题黑体/A4；mermaid 以等宽源码块写入，不嵌位图）。若用 pandoc 兜底，使用 `--reference-doc=/tmp/reference.docx`（预先生成，统一中英文字体为 DengXian）。不可用时降级宿主 docx 能力。
 3. **命名**：`<最终题名>技术交底书.docx`，题名来自 run manifest 的 `final_title`，禁止占位名。
 4. **交付结构**：交付根目录唯一正式 docx + `附图/`（至少 `.mmd`）+ `artifacts/`（过程件下沉）；旧版/修订版/`bak`/`tmp`/评价件 docx 全部清理，过程性 .md 默认保留在 `artifacts/` 供追溯（用户要求洁净交付时归档进 `artifacts/archive/`）。
 5. **健康检查门禁**：
