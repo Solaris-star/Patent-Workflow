@@ -161,7 +161,7 @@ def main() -> int:
         part04_path = base_dir / "artifacts" / "draft" / "part_04_附图说明.md"
         if part04_path.exists():
             part04_text = part04_path.read_text(encoding="utf-8")
-            _require("## 四、附图说明" in part04_text or "## A4. 附图说明" in part04_text, "part_04 heading must be '## 四、附图说明' or '## A4. 附图说明' (got non-standard heading)", errors)
+            _require("## 四、附图说明" in part04_text or "## 四、附图说明" in part04_text, "part_04 heading must be '## 四、附图说明' (got non-standard heading)", errors)
 
     summary = {
         "validator": "validate_facts_ledger.py",
