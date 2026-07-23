@@ -45,9 +45,9 @@ patent                总路由 + 全流程编排 + 门禁脚本 + run manifest
 | `patent-academic-scout` | research | 论文/预印本/综述 → 技术基线与工程化空隙 |
 | `patent-landscape-scout` | research | 方向级专利密度侦察 → 拥挤度与白地 |
 | `patent-regulation-scout` | research | 标准/法规/监管 → 合规驱动的创新空间 |
-| `patent-consistency-auditor` | review | 术语/图号四方/交叉引用一致性 |
+| `patent-consistency-auditor` | review | 术语/图号四方/交叉引用 + 公式符号、约束与源文—导出件渲染一致性 |
 | `patent-ipr-examiner` | review | 9 法定项 IPR 模拟审查 |
-| `patent-tech-reviewer` | review | 数据流闭合/可实现性/数据真实性 |
+| `patent-tech-reviewer` | review | 数据流闭合/可实现性 + 公式格式、变量/量纲/边界与数理正确性 + 数据真实性 |
 | `patent-language-auditor` | review | AI 浓度/语气/专利文体（只查不改） |
 
 每个 scout 内置**防偷懒配额**（最低检索轮数/正文抓取数/证据数 + search_log 留痕 + dead_ends 必填，各 agent 文件为配额真源）与**时效自校验**（证据必须带日期，按 freshness_window——默认 18 个月——分级 fresh/valid/stale，stale 超标必须重搜）；主代理侧还有抽查防伪与时效审计两道闸。agent 缺失时 skill 自动降级为动态指令子代理 → solo 多轮，行为定义见各 SKILL.md 的能力梯度。

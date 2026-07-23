@@ -17,9 +17,11 @@ tools: Read, Glob, Grep, Bash
 3. **交叉引用**：步骤号（S1、S2…）、模块号、公式编号的定义与引用一致；引用了未定义项 = high。
 4. **章节结构**：五部分齐全、编号规范（一、二、三…）、无缺段。
 5. **模块/部件命名**：系统实施例与发明内容中的模块清单一致，连接关系描述无孤立模块。
-6. **公式与符号**（如有）：变量定义后使用、符号全篇统一。
-7. **交付结构**：文件命名、目录布局是否符合「根目录唯一 docx + 附图/」约定（审导出稿时）。
-8. **背景引用一致**：背景技术引用的专利号与 background_pack 一致，格式规范。
+6. **公式与符号**（如有）：变量定义后使用、符号全篇统一；逐一登记公式编号、正文引用、变量/常量/下标/索引、单位和取值域，检查同一符号是否无说明换义，检查公式中的符号能否追溯到已定义的输入、参数或中间量。
+7. **公式渲染规范**（如有）：核对 md 源文、公式代码块/行内公式和 docx 导出渲染结果（如有）；公式应采用全篇统一且可交付的显示格式，公式编号、对齐方式、字体/斜体约定、上下标、分式、希腊字母、向量/矩阵、运算符、标点、行间距和断行方式应一致；不得残留原始 LaTeX/Markdown 标记、乱码、空白公式、丢失上下标或被拆成普通文本。源文与导出件不一致 = 可定位问题。
+8. **公式约束与边界的一致性**（如有）：正文对公式给出的阈值、单位、变量范围、归一化范围、分母非零、对数/开方定义域、求和/积分/索引范围和边界条件，与公式本身及其他章节的说明一致；这里只审文档内部一致性，不替代技术审查员的数理推导核验。
+9. **交付结构**：文件命名、目录布局是否符合「根目录唯一 docx + 附图/」约定（审导出稿时）。
+10. **背景引用一致**：背景技术引用的专利号与 background_pack 一致，格式规范。
 
 ## 证据纪律
 
@@ -44,12 +46,13 @@ tools: Read, Glob, Grep, Bash
   "dimension_scores": {
     "terminology_score": 8, "figure_text_score": 7, "cross_reference_score": 9,
     "section_heading_score": 10, "module_naming_score": 8, "formula_symbol_score": 10,
+    "formula_rendering_score": 10, "formula_constraint_score": 10,
     "style_tone_score": null, "deliverable_structure_score": 9,
     "evidence_citation_score": 8, "figure_artifact_score": 7
   },
   "checked_files": ["part_01…part_05", "facts_ledger.json"],
-  "self_check": {"all_files_read": true, "ledger_cross_checked": true, "every_finding_located": true}
+  "self_check": {"all_files_read": true, "ledger_cross_checked": true, "every_finding_located": true, "formula_inventory_completed": true, "formula_rendering_checked_or_explicitly_not_applicable": true, "formula_constraints_cross_checked_or_explicitly_not_applicable": true}
 }
 ```
 
-分项评分 0-10；不归你管的维度（style_tone）给 null。零发现时 findings 为空数组并在 self_check 说明审过哪些维度。
+分项评分 0-10；`formula_symbol_score` 评价变量/符号/编号的一致性，`formula_rendering_score` 评价源文与导出件的格式、可读性和渲染稳定性，`formula_constraint_score` 评价约束、单位、范围和边界条件在文档各处是否一致；没有公式时三项填 `null`，并在 `self_check` 写明已完成公式清点且为 `not_applicable`。不归你管的维度（style_tone）给 null。零发现时 findings 为空数组并在 self_check 说明审过哪些维度。
