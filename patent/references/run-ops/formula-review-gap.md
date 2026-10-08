@@ -1,25 +1,9 @@
-# Review 公式审查 + 写作纯文本公式（2026-07-23 更新）
+# 公式审查状态
 
-## Review 能力状态
+先盘点实际材料中的公式。没有公式时记录 not_applicable，不为满足清单而虚构公式。发现公式时分别检查：
 
-| 层 | 状态 |
-|---|---|
-| `patent-review` 主 skill | 一致性：符号/渲染/约束；技术：格式 + 数理；分工强制 + `not_applicable/blocked` |
-| CONSISTENCY 模板 | `formula_*` 字段 + `formula_rendering_score` / `formula_constraint_score` + 公式审计记录 |
-| `patent-tech-reviewer` | 已增强：清点/格式/变量/量纲/边界/最小数值例 + `formula_audit` |
-| `patent-consistency-auditor` | 已增强：符号 + **渲染规范** + 约束跨段一致 |
+- 源稿与 DOCX 的可读性和渲染；
+- 编号、引用、符号和约束在文档内是否一致；
+- 变量定义、单位、取值域、运算与边界条件是否有依据。
 
-跑 review：无公式两视角写 `not_applicable`；有公式不可用外观通顺代替数理正确。
-
-## 写作/导出铁律（用户纠偏 2026-07-23）
-
-1. **源 md 禁止依赖 `$$LaTeX$$` 导出**——`generate_docx.py` 常残留 `\cdot`/`\in`/`\min`。
-2. 用纯文本：`D＝w1·R＋w2·Vn＋w3·C` + 定义段 + 手算例。
-3. **标题/交付禁英文**：`Agent`→「智能体」；docx 抽查无 `Agent`。
-4. docx 抽查：`$$` / `\` 命令 任一命中 → 回源修。
-5. 已坏的 docx 真公式 → `patent-workflow-host-ops/references/docx-formula-repair.md`。
-
-## 相关
-
-- 交付拉平：`delivery-flatten-and-naming.md`
-- 题名禁英文：`patent-run-ops` SKILL §1（若未补全见本文件写作铁律）
+所需公式、定义、数据或导出文件缺失时标记 blocked 或 not_run，并列出缺失材料。排版正确不能代替数理核验；结构检查不能代替专业判断。

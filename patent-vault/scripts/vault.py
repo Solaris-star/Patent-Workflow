@@ -43,6 +43,7 @@ for _s in (sys.stdout, sys.stderr, sys.stdin):
 DEFAULT_ROOT = Path.home() / ".patent-vault"
 JACCARD_THRESHOLD = 0.35
 DEFAULT_VALID_DAYS = 180
+TITLE_MAX_CHARS = 24
 
 # generic patent-title boilerplate stripped before similarity comparison
 _BOILERPLATE = re.compile(
@@ -103,6 +104,14 @@ def _normalize_title(t: str) -> str:
     t = _WS.sub("", t or "")
     t = _BOILERPLATE.sub("", t)
     return t.casefold()
+
+
+def _title_error(title: object, field: str) -> str | None:
+    if not isinstance(title, str) or not title.strip():
+        return f"{field} is required"
+    if len(title.strip()) > TITLE_MAX_CHARS:
+        return f"{field} must be at most {TITLE_MAX_CHARS} characters"
+    return None
 
 
 def _bigrams(s: str) -> set[str]:
@@ -175,6 +184,8 @@ def _raw_fold(t: str) -> str:
 
 
 def cmd_check_title(root: Path, title: str) -> int:
+    if error := _title_error(title, "title"):
+        return _fail(error)
     norm = _normalize_title(title)
     # all-boilerplate titles normalize to "" and would be mutually invisible;
     # fall back to raw (whitespace-stripped) comparison so the screen stays alive
@@ -327,8 +338,8 @@ def cmd_register_case(root: Path, stdin_text: str) -> int:
     c = json.loads(stdin_text)
     if not isinstance(c, dict):
         return _fail("case payload must be a JSON object")
-    if not c.get("title"):
-        return _fail("case.title is required")
+    if error := _title_error(c.get("title"), "case.title"):
+        return _fail(error)
     cases = _load(_cases_path(root), EMPTY_CASES)
     c.setdefault("case_id", f"CASE-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:4]}")
     c.setdefault("status", "direction_selected")

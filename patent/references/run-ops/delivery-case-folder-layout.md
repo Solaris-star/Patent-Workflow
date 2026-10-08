@@ -1,52 +1,15 @@
-# 标题夹交付布局（2026-07-24）
+# 案件目录布局
 
-用户：「过程产物都存进专利名的文件夹，没有就创建」。
+仅用案件本地目录保存运行材料。按实际工作需要创建目录，不复制真实案件样例到仓库或公共示例。
 
-```
-<output_dir>/<标题>/
-├── <标题>技术交底书.md
-├── <标题>技术交底书.docx
-├── 附图/
-│   ├── fig_01_*.mmd
-│   ├── fig_01_*.png      # health_check 要 image 时
-│   ├── fig_02_*.mmd
-│   └── fig_02_*.png
-└── artifacts/
-    ├── research/         # pack + evidence/*
-    ├── prior_art/
-    ├── style/            # patent-style 四件
-    ├── draft/            # part_* + merged + facts_ledger
-    ├── audit/
-    ├── revision/         # backup + post_fix
-    ├── delivery/         # health report + 终稿副本
-    ├── archive/          # 错误模板残留
-    └── run_manifest.md
-```
+建议结构：
 
-## facts_ledger 图件
+- inputs/：用户明确选择并导入的源文件副本。
+- artifacts/research/：研究包和范围记录。
+- artifacts/prior_art/：证据、背景比较和按请求创建的 IPR 包。
+- artifacts/draft/：五段正文、事实台账和附图源文件。
+- artifacts/audit/：审查报告与 review_status。
+- artifacts/revision/：获准的 edit_plan、structured_diff 和复审结果。
+- artifacts/delivery/：最终 Markdown、DOCX 与交付健康报告。
 
-```json
-"artifacts": {
-  "mmd": "附图/fig_01_系统架构.mmd",
-  "image": "附图/fig_01_系统架构.png",
-  "editable": ["附图/fig_01_系统架构.mmd"]
-}
-```
-
-caption 与正文「系统架构框图 / 方法工作流程框图」逐字一致。
-
-## 健康检查
-
-```bash
-# 优先 venv（有 python-docx）
-<home> \
-  …/patent/scripts/health_check_delivery_package.py \
-  --deliver-dir "<标题夹>" --patent-title "<标题>" \
-  --facts-ledger artifacts/draft/facts_ledger.json \
-  --consistency-report artifacts/audit/phase_08_consistency_audit_report.md \
-  --ipr-report artifacts/audit/phase_09_ipr_review_report.md \
-  --out artifacts/delivery/phase_11_delivery_health_report.json \
-  --base-dir "<标题夹>"
-```
-
-staging 吸收后删除 `_staging_*`。
+run manifest 记录当前阶段、实际材料路径、缺失项、下一步、用户等待状态和哈希。初始化不得覆盖已有文件；恢复时保留现有材料。

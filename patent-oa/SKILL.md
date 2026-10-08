@@ -10,9 +10,11 @@ description: |
 
 # patent-oa：审查意见答复辅助
 
-**定位与免责（硬规则）**：本 skill 产出**技术论证工作稿**，每份输出头部带固定声明（见 [references/OA_REPLY_TEMPLATE.md](references/OA_REPLY_TEMPLATE.md)）：*本工作稿仅为技术论证辅助材料，不构成法律意见；答复定稿、期限核算与提交以专利代理师为准。* 答复期限只**转述**通知书记载日期，不做推定计算。
+**定位与免责（硬规则）**：示例 JSON 仅示意字段，所有示例值均为虚构占位符。本 skill 产出**技术论证工作稿**，每份输出头部带固定声明（见 [references/OA_REPLY_TEMPLATE.md](references/OA_REPLY_TEMPLATE.md)）：*本工作稿仅为技术论证辅助材料，不构成法律意见；答复定稿、期限核算与提交以专利代理师为准。* 答复期限只**转述**通知书记载日期，不做推定计算。
 
 ## 工作区与 oa_manifest（老案新事件）
+
+下方 manifest 中的题名、编号、法律条款标记和段落号均为**明确合成占位**，不来自真实申请人、客户、案件或专利文本。真实值只能从用户授权的案件材料提取。
 
 OA 是已交付案件的新事件——**不复活已关闭的写作 run**。工作区：
 
@@ -24,20 +26,21 @@ OA 是已交付案件的新事件——**不复活已关闭的写作 run**。工
 ```json
 {
   "doc_type": "oa_manifest",
-  "oa_id": "OA-<申请号>-<次数>",
-  "application_number": "…",
-  "patent_title": "…",
-  "notice_type": "第一次审查意见通知书",
-  "notice_date": "（转述通知书记载）",
-  "reply_deadline_as_stated": "（仅转述，不推定）",
-  "rejected_claims": [{"claim": 1, "articles": ["A22.3"]}],
+  "synthetic_example": true,
+  "oa_id": "OA-SYN-0001",
+  "application_number": "SYN-APP-0001",
+  "patent_title": "【合成示例】任务状态对齐方法",
+  "notice_type": "第一次审查意见通知书（合成示例）",
+  "notice_date": "YYYY-MM-DD",
+  "reply_deadline_as_stated": "YYYY-MM-DD（仅为占位，按通知书记载转述）",
+  "rejected_claims": [{"claim": 1, "articles": ["SYN-LEGAL-REF-01"]}],
   "cited_documents": [{
-    "id": "D1", "publication_number": "CN…A",
-    "fulltext_status": "fetched|abstract_only|user_pdf|missing",
-    "source": "cnipa|google_patents|user_pdf",
-    "examiner_cited_paragraphs": ["[0032]-[0041]"]
+    "id": "D1", "publication_number": "SYN-PUB-0001",
+    "fulltext_status": "abstract_only",
+    "source": "user_pdf",
+    "examiner_cited_paragraphs": ["SYN-PAR-0001"]
   }],
-  "status": "parsed|d_files_ready|matrix_done|argued|red_teamed|handed_to_attorney",
+  "status": "parsed",
   "vault_case_id": null,
   "sensitive_map_path": null
 }
@@ -45,17 +48,17 @@ OA 是已交付案件的新事件——**不复活已关闭的写作 run**。工
 
 有 vault 时回链：开始时 `update-case <id> --status oa_pending`，工作稿移交后 `--status oa_replied`；无 vault 零影响。
 
-**涉密血统继承（硬规则）**：原案 run manifest 可定位且声明了 `sensitive_map_path` → oa_manifest 必须继承该字段；原 manifest 不可得但案件疑似 mine 血统（vault 案件记录、用户告知）→ 先向用户确认 map 位置再继续。继承了 map 的 OA，Step 7 移交前对全部对外产物（工作稿/feature_matrix/claim_amendment/docx）跑 `validate_sanitize.py --map <该路径> --files …`，命中即回改——OA 工作稿同样会离开本机，不受 deliver 门禁保护，这一步就是它的替代闸。
+**涉密血统继承（硬规则）**：原案 run manifest 可定位且声明了 `sensitive_map_path` → oa_manifest 必须继承该路径引用；原 manifest 不可得但案件疑似 mine 血统（vault 案件记录、用户告知）→ 先向用户确认 map 位置再继续。Step 7 移交前，对全部对外产物（工作稿/feature_matrix/claim_amendment/docx）运行 `validate_sanitize.py --map <该路径> --files …` 前，先请用户显式重选/确认与 oa_manifest 完全一致的路径；不得只依据旧 manifest 自动读取。validator 在原位置读取所选 map，不复制；未确认或路径不一致时停止，不运行 validator。OA 工作稿同样会离开本机、不受 deliver 门禁保护，所以需完成此项本地复核。
 
 ## Step 1：解析通知书
 
-输入：通知书 PDF/文本（宿主 PDF 能力优先，`python -m pypdf` 兜底）。提取 → `notice_extract.md`：
+输入：通知书 PDF/文本（使用宿主实际可用的 PDF 读取器；否则仅在本机已安装 pypdf 时本地解析。本仓库不安装该依赖；都不可用时标记不可用并请求可访问的本地文本，不自动安装或上传文件）。提取 → notice_extract.md：
 
-通知书类型与次数、发文日、**驳回条款**（专利法 22.2 新颖性 / 22.3 创造性 / 26.3 充分公开 / 26.4 支持 / 2.2 客体等）、**引用对比文件**（D1/D2/D3 公开号 + 审查员引用的具体段落号）、审查员对区别特征的认定与评述逻辑链（逐条原文摘录，后续逐条回应）。
+通知书类型与次数、发文日、驳回条款、引用对比文件及审查员对区别特征的评述逻辑链；只保留最短必要且已获授权的摘录并记录通知书页码/段落。未获准或无法核对时准确转述并标记待核，不复制整段通知书。
 
 ## Step 2：拉取对比文件全文
 
-复用 patent-prior-art 的三级通道（优先级与纪律照搬）：
+复用 patent-prior-art 的来源通道（仅当本次宿主确实提供且用户请求时使用）：案件派生查询、通知书或材料发送给外部服务前，必须按 search-protocol 取得本次明确确认。
 
 1. CNIPA 脚本：`python <patent-skill-dir>/scripts/cnipa/cnipa_epub_search.py <公开号>`
 2. playwright MCP / browser-cdp 现场操作国知局详情页
@@ -66,16 +69,16 @@ OA 是已交付案件的新事件——**不复活已关闭的写作 run**。工
 
 ## Step 3：特征对比表
 
-`feature_matrix.json`——本申请权利要求逐特征 × 各 D 文件（**与 ipr_pack 的 feature_to_prior_art_matrix 同构**，为 Step 5 复用 agent 铺路；原案 workspace 还在时可直接读 `artifacts/prior_art/phase_05_ipr_pack.json` 作底稿对照）：
+feature_matrix.json — 本申请权利要求逐特征 × 各 D 文件（与 ipr_pack 的 feature_to_prior_art_matrix 同构；下方所有值与段落定位均为合成占位）。
 
 ```json
 {"matrix": [{
-  "claim": 1, "feature_id": "F1", "feature": "…",
-  "d1": {"disclosed": "yes|no|partial", "paragraphs": ["[0035]"], "note": "…"},
+  "claim": 1, "feature_id": "F-SYN-001", "feature": "SYN-FEATURE-001",
+  "d1": {"disclosed": "partial", "paragraphs": ["SYN-PAR-001"], "note": "synthetic placeholder"},
   "d2": {"disclosed": "no"},
-  "examiner_position": "…",
-  "our_position": "agree|contest",
-  "contest_reason": "…"
+  "examiner_position": "synthetic placeholder",
+  "our_position": "contest",
+  "contest_reason": "synthetic placeholder"
 }]}
 ```
 
@@ -93,11 +96,11 @@ OA 是已交付案件的新事件——**不复活已关闭的写作 run**。工
 
 ## Step 5：答复预演（对抗自检）
 
-复用 **patent-ipr-examiner** agent（其输入契约与 feature_matrix 同构），附加动态指令：「你现在审的是 OA 答复论证草案，以审查员立场找论证漏洞：哪条区别特征认定站不住、哪条结合启示否认牵强、哪处技术问题重界定越过说明书记载」。发现的漏洞回改 argument_draft。agent 缺失 → 动态指令子代理 → solo 逐条自审（家族惯例梯度）。
+仓库只保存 agents/patent-consistency-auditor.md 和 agents/patent-tech-reviewer.md 两份 reviewer 提示词，不会自动部署或启动代理。它们分别提供文档一致性和技术可实现性视角，不是 OA 专属 examiner agent。宿主实际支持两路独立 reviewer、且用户授权的最少必要材料可分别提供时，可以并行；否则在当前会话按两种视角顺序复核并注明单会话。审查员视角是分析方法，不表示存在额外的 examiner 代理。提供材料时仅限本次已授权的通知书必要摘录、对比文件相关段落、feature matrix 和论证段落；向外部服务传送仍须先确认具体内容、目的地和用途。
 
 ## Step 6：权利要求修改建议
 
-`claim_amendment.md`：修改方向（合并从权/补入说明书特征缩限）+ 修改前后对照 + **每处修改标注说明书依据段落**（专利法 33 条防修改超范围——这是 ipr-examiner 第 8 项的镜像应用）。
+在 claim_amendment.md 中记录修改方向（如合并从属权利要求或补入说明书已有特征）、修改前后对照，以及每处修改对应的原始说明书依据段落（专利法第 33 条的超范围风险须由代理师判断）。
 
 ## Step 7：汇总移交
 

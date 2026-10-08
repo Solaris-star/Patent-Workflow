@@ -14,8 +14,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 CN_PREFIX = ("CN",)
 
-# Profiles allow phase gates to be tuned per domain without breaking legacy behavior.
-# Default profile MUST preserve historical behavior.
+# Profiles allow phase gates to be tuned per domain. Prefer the per-run terms
+# file for the requested software-patent subject; legacy profiles remain opt-in.
 PROFILES = {
     "legacy": {
         "project_terms": ["项目管理", "项目计划", "项目实施", "项目协同", "项目执行", "项目进度", "软件开发项目", "工作流"],
@@ -157,8 +157,10 @@ def main():
     ap = argparse.ArgumentParser(description="Validate patent candidates for patent-workflow gates")
     ap.add_argument("input", help="Path to candidate patent JSON (array or object with patents/candidates array)")
     ap.add_argument("--output", help="Path to write validation summary JSON")
-    ap.add_argument("--min-count", type=int, default=5)
-    ap.add_argument("--fresh-years", type=float, default=1.5)
+    ap.add_argument("--min-count", type=int, default=0,
+                    help="Optional caller-requested result threshold; default imposes no count quota")
+    ap.add_argument("--fresh-years", type=float,
+                    help="Optional publication-date filter; omit for prior-art searches that include older work")
     ap.add_argument("--relevance-threshold", type=int, default=60)
     ap.add_argument(
         "--profile",
@@ -219,7 +221,10 @@ def main():
         date_ref = item.get("filingDate") or item.get("publicationDate") or ""
         item["ageYears"] = age_years(date_ref, now)
         item["relevanceScore"] = relevance_score(item, cfg)
-        item["freshPassed"] = item["ageYears"] is not None and item["ageYears"] <= args.fresh_years
+        item["freshPassed"] = (
+            args.fresh_years is None
+            or (item["ageYears"] is not None and item["ageYears"] <= args.fresh_years)
+        )
         item["relevancePassed"] = item["relevanceScore"] >= args.relevance_threshold
 
         if item["isCN"] and item["freshPassed"] and item["relevancePassed"]:

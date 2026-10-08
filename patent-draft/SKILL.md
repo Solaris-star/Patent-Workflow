@@ -1,114 +1,58 @@
 ---
 name: patent-draft
-description: |
-  专利交底书分块撰写与交付出稿引擎。从 5 部分分块写作（技术领域/背景技术/发明内容/
-  附图说明/具体实施方式）到附图 mmd 内嵌、docx 导出、命名清理、交付健康检查的完整链路。
-  触发方式：/patent-draft、「写交底书」「分块撰写」「生成docx」「导出终稿」「出附图」
-  「修改第X部分」。可独立使用（含只导出场景：已有 md 帮我出 docx），
-  也被 patent 全流程编排在写作与交付两步调用。
+description: "按可追溯证据和用户确认范围协作撰写、复审并交付软件专利技术交底书。"
 ---
 
-# patent-draft：分块撰写与交付出稿
+# 软件专利交底书撰写与交付
 
-两段式入口，按用户意图或流程位置进入：
+仅处理专利交底书，不编排研发任务。先读取 run manifest、现有五段正文、facts_ledger、evidence_pack、审查状态和用户确认，再决定续写、补证、修订或导出。
 
-- **写作段**：分块写 5 部分 + facts_ledger + 附图 mmd（内嵌 part_04）→ `--gate draft`
-- **导出段**：docx 合并 + 命名 + 清理 → `--gate deliver`（全流程中在 patent-review 通过后执行）
+## 五段正文
 
-交付细则清单见 [references/DELIVERY_CHECKLIST.md](references/DELIVERY_CHECKLIST.md) 与 [references/FIGURE_DELIVERY_CHECKLIST.md](references/FIGURE_DELIVERY_CHECKLIST.md)，宣告完成前逐项过。
+在 artifacts/draft 中保留实际五个非空 Markdown 文件，文件名以 part_01_ 至 part_05_ 开头：
 
-## 写作段
+1. 发明名称
+2. 背景技术
+3. 发明内容
+4. 附图说明
+5. 具体实施方式
 
-### 装配写作输入
+题名统一最多 24 个字。正文只写 source registry、证据和用户确认支持的内容。已实现事实、来源陈述、推断和待确认事项分别标注，不把推断写成已验证事实，不编造效果或专利引用。
 
-开写前收齐（缺项按注明方式降级）：
+## 证据与特征追溯
 
-| 输入 | 来源 | 缺失时 |
-|---|---|---|
-| 选定方向 + 工作题名 | run manifest | 询问用户 |
-| background_pack（≥2 篇已验证专利 + closest_prior_art + major_differences） | patent-prior-art | **阻塞**——背景技术必须引用已验证专利，不得编造 |
-| template_rules.json / style_profile.md | patent-style | 用内置默认规范（本文件的结构与用语规则） |
-| research_pack 的 outline_skeleton 与 evidence | patent-research | 仅影响素材丰富度，不阻塞 |
+沿用 phase_04_evidence_pack.json 和 facts_ledger.json。每个稳定 feature_id 使用 F-... 形式，并引用 source_id、evidence_id、paragraph_id 与 figure_id。材料和代码来源记录 SHA-256；外部证据记录 URL、摘录、日期、核验状态和核验日期。事实台账不要另建平行数据库。
 
-### 写作前检查（一次完成）
+正文引用外部证据时使用 [[EVIDENCE-ID]]，并使其与事实台账中的 evidence_id 一致。离线校验只验证结构、链接、哈希、日期和显式核验状态，不提供新颖性或授权结论。
 
-1. **选题合理性**：应用场景真实存在、方案安全合规。
-2. **差异化**：与 background_pack 中专利的技术特征重复度 ≤ 30%，区别特征能落到 major_differences。
-3. **创新示例真实性**：列举的创新示例先想清楚现有技术是否已实现、真实场景是否存在，不编造伪创新。
-4. **题名校核**：发明名称 ≤ 22 字（与 `validate_facts_ledger.py --check-draft-format` 硬门禁一致；超长直接 fail）。
+## Mermaid 图
 
-### 5 部分结构与字数（专利模式固定，不生成权利要求书——那是代理师的活）
+默认 figure_delivery_mode 是 mermaid_only：
 
-| 分块 | 文件 | 字数 |
-|---|---|---|
-| 一、技术领域 | `part_01_技术领域.md` | 50-100 |
-| 二、背景技术 | `part_02_背景技术.md` | 300-800 |
-| 三、发明内容 | `part_03_发明内容.md` | 1200-2000（其中技术方案 800-1500） |
-| 四、附图说明 | `part_04_附图说明.md` | 100-300（不含 Mermaid 代码块） |
-| 五、具体实施方式 | `part_05_具体实施方式.md` | 1500-3000 |
+- 每幅图在附图目录交付一个有效、非空的 .mmd 源文件。
+- facts_ledger.figure_registry 记录 figure_id、caption、artifacts.mmd 和对应的 feature_id。
+- part_04 引用每个图号与图名；DOCX 中包含相应 Mermaid 源码。
+- 不要求 PNG、SVG、drawio 或 DOCX 中的位图。
 
-**默认连续生成全部 5 块再统一交 patent-review**；用户明确要求逐块确认时才逐块停。每块生成后立即落盘并同步更新 facts_ledger，字数不达标当场重写或扩写。
+用户明确要求图片时，manifest 设置 figure_delivery_mode 为 mermaid_and_images。每个图片文件都必须存在于实际交付目录、被终稿 Markdown 引用，并在 DOCX 中有有效图片关系。单独存在的 DOCX media 文件不能替代实际引用。
 
-### 分部规范（精编）
+## 修改授权
 
-**背景技术**：引用 background_pack 中 2-3 篇已验证专利，格式「中国发明专利CNxxxxxxA公开了……」——**禁止**附带公开日、申请人等括号信息。缺陷分析用「然而/同时/此外」转折，禁用「其缺陷在于/缺点是」；连贯段落，禁列表。
+审查问题用稳定 ISSUE-... ID。修订计划列出用户批准的 issue_ids 与范围，每条 edit 和 structured_diff 都引用相同 issue_id。针对已批准问题且不改变技术事实或保护范围的修复可复用授权；加入新技术事实、扩大范围或接受未解决风险时，必须记录具体用户决定。没有批准的回改时保持原稿，并将 revision_validation 设为 not_required。
 
-**发明内容**：要解决的技术问题 → 技术方案 → 有益效果。技术方案逐特征写实现方式、模块/步骤间连接关系与数据流，禁笼统描述；有益效果必须能回指技术特征，禁无实验支撑的编造数据（如「准确率 91%」）——确需数据时标注「示例性数据，需实际测试」。
+材料或终稿哈希变化后，旧审查结论待复核。审查报告存在不等于通过；review_status.json 必须显式确认一致性审查、IPR 审查、issue disposition、版本哈希和高严重度豁免。
 
-**附图说明**：每张图一句「图 X 为……」；**紧跟该图的 Mermaid 源码可见代码块**（这是附图的唯一强制交付形态，门禁校验此项）。**禁止**在 part_04 / 合并稿中插入 `![...](...png/svg)` 图片引用，**禁止**为通过门禁而向 docx 嵌入位图。
+## 导出与验证
 
-**具体实施方式**：只写 2 个实施例——方法实施例（结合流程图按步骤展开，每步含实现细节与嵌入式示例）+ 系统实施例（结合架构图写模块组成/连接/工作原理）；用「本发明实施例提供……」「本发明实施例还提供……」连贯段落，禁「实施例一、实施例二」列表体；实施例必须与本发明技术领域直接相关，禁止从参考专利搬运无关示例；结尾固定套话「以上所述，仅为本发明的具体实施方式，但本发明的保护范围并不局限于此……」。
+从仓库根目录执行：
 
-**全文用语**：专利规范用语（「所述」「本实施例」「其特征在于」），禁对外文档用语（「进一步」「客户」「贵方」）；术语全文统一（登记进 facts_ledger.terminology）。
+~~~powershell
+python patent/scripts/workflow_cli.py export --workspace . --manifest artifacts/run_manifest.md
+python patent/scripts/workflow_cli.py check --workspace . --manifest artifacts/run_manifest.md --gate deliver
+~~~
 
-### facts_ledger（持续落盘 `artifacts/draft/facts_ledger.json`）
+若 manifest 声明 `sensitive_map_path`，以上两条命令都须追加 `--sensitive-map "<manifest 中相同的绝对路径>"`。导出会重跑当前模式的有效门禁与审查，验证所选 map 的当前内容和确认绑定，并扫描最终 Markdown 与生成的 DOCX；缺少重选或路径不匹配时，在读取 map 前失败。导出使用同目录临时 DOCX，输出 `generated_pending_delivery_check` 且 `workflow_complete: false`。随后单独运行 deliver 门禁检查 manifest 绑定的输出目录、Markdown、DOCX、最新 review_status 和源文件。DOCX 文本会检查题名、证据引用、图源和 Markdown/数学残留；本机 LibreOffice 渲染不可用时记录为 `not_run`，交付门禁不能报告 complete。
 
-```json
-{
-  "ledger_type": "facts_ledger",
-  "terminology": [{"term": "意图仲裁模块", "aliases": [], "definition": "……"}],
-  "figure_registry": [{
-    "figure_id": "图1",
-    "caption": "系统架构图",
-    "artifacts": {
-      "mmd": "附图/fig_01_系统架构.mmd"
-    },
-    "mermaid_source_embedded_in_docx": true
-  }],
-  "constraints_and_effects": [{"constraint": "……", "effect": "……", "source_part": "part_03"}]
-}
-```
+## 边界
 
-每写/改一个 part 同步更新，不得最后补账。门禁 `--gate draft` 校验：三区非空、图的 mmd（可编辑源）真实存在、mermaid 内嵌标记为 true。**不要求** png/svg/drawio；`artifacts.image` / `artifacts.editable` 均可省略。
-
-### 附图要求（写作段内完成）
-
-每张图以同前缀存放 `附图/`（`fig_01_XXX.mmd`），禁止另设 final/、drawings/ 等目录：
-
-1. **`.mmd`（必须，且即是可编辑源）**：`graph TD/LR` 开头，节点 ID 用字母数字（A1、B2），避免 `subgraph`/`style`（ProcessOn 兼容）；**同时以可见代码块嵌入 part_04**。不要求 `.drawio` / `.vsdx` / `.png` / `.svg`。
-2. **禁止默认嵌图**：合并 md / 导出 docx 时**不得**插入图片 markdown，也**不得**为过门禁生成/嵌入 png。用户显式要求“额外导出预览图”时，才可另存 png，且仍不写入交底书正文与 docx。
-3. **可选字段**：`artifacts.image` / `artifacts.editable` 可省略；若填写则路径必须真实存在（不因省略而 fail）。
-
-图号、mmd 文件名、正文「如图X所示」、part_04 描述四者一一对应（联动规则见 FIGURE_DELIVERY_CHECKLIST）。
-
-### 联动修改与版本
-
-- 单块修改 > 100 字 → 分析对其余 part 的跨块影响（新技术特征？方案变更？图需更新？），输出联动修改建议清单待用户确认。
-- 每次修改前把当前版本备份到 `versions/`（保留近 5 版），支持回滚。
-- **受 review 委托代改时的留痕**（用户在审查汇报后点名委托的条目）：改前把**用户批准的条目**记为 `artifacts/revision/phase_10_edit_plan.json`（`doc_type: edit_plan`、`phase: phase_10`，每条含 edit_id / type / problem / change_instruction / risk_if_not_fixed: high|medium|low / target.section，`acceptance_checks` 含复审项）；每条落实后记 `artifacts/revision/phase_10_structured_diff.json`（`doc_type: structured_diff`、`phase: phase_10`，`diff_items[]` 每条含 `change_kind: add|delete|replace|move`、`location.section`、`linked_edit_id`（须存在于 edit_plan）、`before_excerpt`（delete/replace/move 必填）、`after_excerpt`（add/replace/move 必填））。`--gate review` 校验两文件结构 + **plan→diff 覆盖**（每条批准的 edit 至少一条 diff，缺一 fail）。语言类条目的改写交 `patent-deslop` 执行。用户自己动手改的场景无此要求（届时 review gate 自动 skip）。
-
-## 导出段
-
-前置：全流程中须 `--gate review` 已通过；独立使用（用户只要出稿）时提示未审查风险后可继续。**独立导出且来路文本未知时**（无 run manifest 的「已有 md 帮我出 docx」场景），先跑 `python <patent-skill-dir>/scripts/validate_sanitize.py --heuristics --files <输入.md>` 启发式扫一遍——命中 IP/URL/路径/邮箱即向用户警示可能含密，确认后再出稿。
-
-1. **合并**：按序拼接 5 个 part，附图说明**只保留**每图文字说明 + Mermaid 代码块；**禁止**插入 `![...](*.png|*.svg)` 或其它位图引用。
-2. **生成 docx**（能力梯度）：首选内置脚本 `python <patent-skill-dir>/scripts/generate_docx.py <合并版.md> <输出.docx>`（CN 标准排版：正文等线/标题黑体/A4；mermaid 以等宽源码块写入，不嵌位图）。若用 pandoc 兜底，使用 `--reference-doc=/tmp/reference.docx`（预先生成，统一中英文字体为 DengXian）。不可用时降级宿主 docx 能力。
-3. **命名**：`<最终题名>技术交底书.docx`，题名来自 run manifest 的 `final_title`，禁止占位名。
-4. **交付结构**：交付根目录唯一正式 docx + `附图/`（至少 `.mmd`）+ `artifacts/`（过程件下沉）；旧版/修订版/`bak`/`tmp`/评价件 docx 全部清理，过程性 .md 默认保留在 `artifacts/` 供追溯（用户要求洁净交付时归档进 `artifacts/archive/`）。
-5. **健康检查门禁**：
-   ```
-   python <patent-skill-dir>/scripts/run_phase_gates.py --gate deliver --workspace . --deliver-dir "<交付目录>" --patent-title "<最终题名>" --manifest artifacts/run_manifest.md
-   ```
-   自动校验：文件名匹配、审计/IPR 报告存在、附图 mmd 齐全、docx 存在。**不**校验 `word/media` 非空，**不**要求 png。未过先自查修复重跑。
-   **涉密 run**（manifest 声明了 `sensitive_map_path`）：命令必须追加 `--sensitive-map <该路径>`，否则门禁直接 fail（声明即强制）；交付前**必须**先跑一次 `patent-sanitize` audit 并人工过目——词表门禁查不出同义改写等语义级泄密，人工过目是最后一道闸。
-6. **可选 IM 交付**：用户经 Discord/飞书等渠道沟通时，发送终稿 docx + 「一致性评分 + IPR 评分 + Top3 风险」摘要。
+案件材料默认只留在本地。向第三方模型、MCP、搜索或消息服务发送任何材料前，先向用户确认具体材料、目的地和用途。不得仅因工作流包含检索阶段就自行发送材料。离线验证是结构检查，不是法律意见。

@@ -5,7 +5,7 @@ description: |
   已写题名登记与新题撞车检测、多案状态视图（写作中/审查中/已交付/OA 中）、交付历史。
   触发方式：/patent-vault、「方向池」「选题库」「挑个方向」「我的案子」「写过哪些题」
   「查重」「撞车检测」「案件状态」「交付历史」。被 patent 路由与 patent-research 挂钩调用；
-  vault 未初始化时全家族对接点静默跳过，零影响。
+  vault 未初始化时，其他 skill 的挂接点静默跳过；仅在用户主动使用 vault 时提示初始化。
 ---
 
 # patent-vault：选题库与多案管理
@@ -29,7 +29,7 @@ description: |
 **未初始化引导（本节是家族唯一真源，其他 skill 遇未初始化按此处理）**：
 
 - **用户主动进入本 skill**（/patent-vault 或方向池/查重/案件类意图）→ 不报错：说明「vault 未初始化；init 只在 `~/.patent-vault/` 建三个 JSON 索引文件，不影响任何现有 run」并询问，同意 → `vault.py init` 后**继续用户原本要做的操作**，拒绝 → 结束并说明该功能 init 前不可用。
-- **其他 skill 的挂钩点**（patent 开局探测、research/mine 落选方向入池等）→ **每 run 只问一次**：「要不要初始化选题库？落选方向可积累复用，下轮直接挑；跳过不影响本轮流程」。同意 → init 后照常执行挂钩；拒绝 → 本轮余下挂钩全部静默跳过，有 manifest 时记 `vault_opted_out: true`（后续步骤见此标记不再问）。
+- **其他 skill 的挂接点**：patent/research/mine 等流程在 vault 未初始化时静默跳过；只有用户主动选择使用 vault 时，才说明初始化并询问是否运行 `vault.py init`，经同意后再初始化。
 - **存在但不可解析**（文件损坏）→ 不适用本节：如实报错待用户处置，**禁止自动重建覆盖**。
 
 ## 四类操作
@@ -37,14 +37,14 @@ description: |
 ### 1. 方向池
 
 - **登记落选方向**（patent-research 收敛后挂钩）：用户确认方向后，把**未选中**的候选经用户同意入池——先把本轮 research pack 复制为 `research_snapshots/<run_id>.json`，再逐个 `vault.py add-direction --json-file <临时json>`（字段：title_seed / summary / domain_scope / origin: research|mine / source_run{run_id, workspace, research_snapshot} / rejected_reason / key_evidence）。`source_run.research_snapshot` 填**相对 vault 根**的路径（即 `research_snapshots/<run_id>.json`，禁止 `~` 或绝对路径——挑选时按 vault 根解析）。**含中文的 JSON 一律走 `--json-file` 而非 stdin 管道**（避免控制台编码污染）；**mine 来源必须已脱敏且必带 `origin_sensitive_map_path`**（源项目已确认 map 的绝对路径，缺失时 add-direction 直接拒绝——涉密血统不许在入池时丢失）。
-- **时效**：`valid_days` 默认 180 天（方向池存的是「机会空隙判断」，比 research pack 的 30 天证据窗口宽）；`list --pool` 时现算状态 available/expired。
-- **挑选入 run**：`vault.py pick-direction <id> --target-workspace <新 workspace>` —— 快照自动复制为新 workspace 的 `artifacts/research/phase_02_research_pack.json`，照常过 `--gate research`（门禁零特例）；manifest 记 `research_origin: vault_pool`、`research_reused: true`。挑选动作本身即完成「方向收敛」停顿。快照声明了但文件缺失 → 命令直接失败且**不烧方向**（修好 snapshot 路径再挑）。**挑中 `origin: mine` 的方向 = 继承涉密血统**：按命令输出的 `manifest_instruction` 用 `init_run_manifest.py --update` 把 `vault_direction_origin: mine` 与 `sensitive_map_path`（来自 `origin_sensitive_map_path`）写入新 manifest——缺声明时 `--gate research` 直接 fail，血统不因中转洗白。
+- **方向池有效期**：valid_days 默认 180 天，只用于计算方向池条目的 available/expired 状态；该 TTL 不代表任一证据的 freshness，也不设全局证据窗口。research pack 中每条证据的 freshness 仍须按具体问题、司法辖区、时间范围和来源记录分别评估。
+- **挑选入 run**：`vault.py pick-direction <id> --target-workspace <新 workspace>` —— 快照自动复制为新 workspace 的 `artifacts/research/phase_02_research_pack.json`，照常过 `--gate research`（门禁零特例）；manifest 记 `research_origin: vault_pool`、`research_reused: true`。挑选动作本身即完成「方向收敛」停顿。快照声明了但文件缺失 → 命令直接失败且**不烧方向**（修好 snapshot 路径再挑）。**挑中 `origin: mine` 的方向 = 继承涉密血统**：按命令输出的 `manifest_instruction` 用 `init_run_manifest.py --update` 把 `vault_direction_origin: mine` 与 `sensitive_map_path`（来自 `origin_sensitive_map_path`）写入新 manifest——缺声明时 research 门禁直接 fail，血统不因中转洗白。该 map 仅作为路径引用，不随 research 快照复制；使用 `workflow_cli.py check --gate research` 时，必须显式用 `--sensitive-map <manifest 中同一路径>` 重选，未选或不匹配则在读取前失败。
 - **过期方向不禁选但强制复核**：`revalidation_required: true` 时，以该方向为 fixed_topic 跑一轮 patent-research 定向复核（重验现状类证据）后才进 prior-art；复核通过用 add-direction 同结构更新 `revalidated_at`。
 
 ### 2. 题名撞车检测
 
 ```
-python <本 skill>/scripts/vault.py check-title "一种基于意图仲裁的接管方法"
+python <本 skill>/scripts/vault.py check-title "【合成示例】任务状态对齐方法"
 ```
 
 脚本做**粗筛**（题名归一化：去套话词「一种/方法及系统」等 + bigram Jaccard ≥ 0.35，查重域 = cases ∪ titles_used ∪ 方向池），输出 `collision_candidates`。**模型必须对候选做语义终裁**（技术主轴是否同一），粗筛宁松勿紧——脚本报 0 候选也不代表语义上无撞车，高风险领域可再人工列近期题名核对。撞车结论向用户明示后再定题。
@@ -57,7 +57,7 @@ python <本 skill>/scripts/vault.py check-title "一种基于意图仲裁的接�
 
 - 方向确认后：`vault.py register-case --json-file <临时json>`（字段：title / domain_scope / workspace / run_id / output_dir / direction_id）——题名必含中文，一律走 `--json-file`。
 - 每过一个门禁顺带：`vault.py update-case <case_id> --status <新状态> --event gate_<name>_passed`（patent 编排纪律的一部分，vault 缺席时跳过）。
-- 交付时：`--status delivered --set delivered_at=<日期> --set deliverable=<docx 路径>`。
+- 仅在导出后的 `workflow_cli.py check --gate deliver` 返回 `workflow_complete: true` 后标记交付；DOCX 导出本身返回 `generated_pending_delivery_check`，不代表已交付。声明 `sensitive_map_path` 时，export 与 deliver 检查都重选 manifest 中同一路径。通过后再执行 `vault.py update-case <case_id> --status delivered --set delivered_at=<日期> --set deliverable=<docx 路径>`。
 
 ### 4. 查看
 

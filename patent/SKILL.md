@@ -1,93 +1,58 @@
 ---
 name: patent
-description: "专利选题、查新、交底书起草/审查与全流程的阶段路由；一般专利知识问答不启动工作流。"
+description: "软件专利协作流程：本地材料整理、按需查新、交底书撰写、审查修订与交付。"
 ---
 
-# patent：专利工具箱路由与编排
+# 软件专利协作流程
 
-你是专利交底书工具箱的路由入口和全流程编排者。
+此工作流服务于软件专利交底书协作，不用于管理研发项目。核心对象是专利材料、技术特征、证据、审查问题、用户决策和可追溯交付版本。
 
-## 路由表
+## 先判定任务路径
 
-| 用户意图 | 关键词示例 | 路由到 |
+| 用户已有材料 | 路径 | 不重复进行 |
 |---|---|---|
-| 完整流程 | 跑一遍工作流、从头写一篇专利、选题+查新+写稿 | 本 skill「全流程编排」 |
-| 创新点调研/选题 | 调研、选题、找创新点、交叉领域、写什么方向 | `patent-research`（无 smart-search CLI 时）/ `patent-research-cli`（有 CLI 时，见下方探测） |
-| 专利检索/查新 | 查新、检索专利、背景专利、prior art、找对比文献 | `/patent-prior-art` |
-| 模板/风格分析 | 解析模板、分析写作风格、学习参考专利行文 | `/patent-style` |
-| 写交底书/出稿 | 写交底书、分块撰写、生成 docx、导出终稿、出附图 | `/patent-draft` |
-| 审查/回改 | 审查、一致性审计、IPR 审查、模拟审查、回改 | `/patent-review` |
-| 去 AI 味 | 去 AI 味、太 AI 了、汇报腔、解释腔、改语气 | `humanizer` + `patent-run-ops` 中的专利体裁约束 |
-| 选题库/多案 | 方向池、选题库、挑个方向、我的案子、查重、案件状态 | `/patent-vault` |
-| 存量项目挖掘 | 从项目挖专利、这个项目能申请什么、反向挖掘 | `/patent-mine` |
-| 脱敏/泄密检查 | 脱敏、泄密、保密审查、这篇能不能公开 | `/patent-sanitize` |
-| 审查意见答复 | 审查意见、OA、答复通知书、对比文件、三步法 | `/patent-oa` |
+| 只有主题或初始材料 | full_research | 先调研，再查新、撰写和审查 |
+| 已确定主题或题名，需要补证 | titled_evidence | 不重新选题；按请求的检索深度补证 |
+| 已有交底稿 | draft_review | 先复用并校验现有材料，直接审查或按要求修订 |
 
-路由流程：
+只有在主题、材料边界、交付目录或授权范围缺失且会影响工作时才向用户询问。重复询问前检查 manifest 中的确认记录。新增保护范围、技术事实或未解决风险仍须用户判断；字数、改动数量或相似度都不能代替授权。
 
-1. 先区分知识问答、只读审查与授权执行，再匹配本阶段。Hermes 用 `skill_view(name)`；其他宿主用可用技能加载器或读取对应 SKILL.md。只读审查不自动代改，完整流程才推进后续阶段。
-2. 无法匹配时先读必要上下文；仅影响输出范围、关键方向或写入权限的歧义需要询问，不为低风险选择增加停顿。
-3. 调研类请求先做一次能力探测（见下），自动选 `patent-research-cli` 或 `patent-research`，用户可显式指定。
+## 初始化和恢复
 
-## 开局动作（全流程模式）
+从仓库根目录通过 patent/scripts/workflow_cli.py 使用 init、status、resume、check、export。初始化需要用户明确的绝对输出目录，不覆盖已有 manifest 或案件材料。恢复时复用已验证的材料，记录阶段历史、当前阶段、缺失材料、下一步和是否等待用户。
 
-1. **首问（默认唯一开局提问）**：`本轮准备写哪些领域的专利？`
-   - 用户请求里已带领域或固定题目 → 不重复问，直接确认收到的范围。
-   - 用户未给领域 → 后续调研执行「交叉领域发现」，从 `AI / 自动驾驶 / 智能座舱 / 项目管理 / Agent` 中组合推荐（用户可改池子）。
-2. 冷启动（无 `artifacts/run_manifest.md` 或其 `output_dir` 为空）必须让用户明确指定**交付目录绝对路径**，不得猜测默认路径。
-3. 初始化 run manifest：
-   ```
-   python <本 skill 目录>/scripts/init_run_manifest.py --out artifacts/run_manifest.md --domain-scope "<领域>" --output-dir "<交付目录>"
-   ```
-4. 能力探测一次并写入 manifest 的 `capability_profile`（协议见 [references/search-protocol.md](references/search-protocol.md)）：
-   - `smart-search` CLI 是否存在（存在 → 调研走 `patent-research-cli`）
-   - 会话中是否有搜索/浏览器类 MCP 工具
-5. 检查可复用初始化工件（见「缓存复用」）与 vault（`~/.patent-vault/` 存在则提示在写案件数与可用方向数，用户可「从方向池挑一个」跳过调研；未初始化则按 patent-vault「未初始化引导」处理，拒绝记 `vault_opted_out`）。
+workflow_mode 使用 full_research、titled_evidence 或 draft_review。search_depth 按用户请求记录为 light、balanced 或 deep；没有请求配额时不硬凑检索数量。
 
-## 全流程管线
+## 本地数据边界
 
-| 步骤 | 调用 | 产出与门禁 |
-|---|---|---|
-| 1. 初始化层（可选） | `patent-style` | 模板/风格工件；冷启动或换模板时才跑，否则复用缓存 |
-| 2. 调研选题 | `patent-research(-cli)` | `phase_02_research_pack.json` → `--gate research` 通过 |
-| 3. 方向收敛 | 本 skill 主持 | 用户确认方向与题名（已明确指定时复用确认）；vault 存在时先 `vault.py check-title` 撞车检测（模型语义终裁），结论向用户明示后定题，随后 `register-case` |
-| 4. 查新检索 | `patent-prior-art` | 候选池 + 证据包 → `--gate prior-art` 通过，背景包放行写作 |
-| 5. 分块撰写 | `patent-draft`（写作段） | 5 部分 md + facts_ledger + 附图三件套 → `--gate draft` 通过 |
-| 6. 审查 | `patent-review` | 审计/IPR 报告按交付授权落盘并**向用户汇报问题清单**（未授权代改或需改变技术范围时等决策）→ 用户自改或已委托代改（代改走 patent-draft，留痕过 `--gate review`）→ 复审至无 high 项或用户豁免 |
-| 7. 终稿交付 | `patent-draft`（导出段） | `<题名>技术交底书.docx` → `--gate deliver` 通过后方可宣告完成（manifest 有 `sensitive_map_path` 时必须带 `--sensitive-map`，缺省即 fail） |
+专利材料、案件文件和脱敏映射默认留在本地。任何材料离开本地、进入第三方模型、MCP、搜索或消息服务前，先向用户说明材料、目的地和用途并获得当次明确确认。未确认时不外发、不调用相关服务。不得新增发送行为。
 
-mine-origin run：步骤 2 由 `patent-mine` 完成（内含 patent-sanitize 强制卡点），manifest 记 `research_origin: mine`，其余步骤不变。vault-origin run：步骤 2-3 由 `vault.py pick-direction` 的快照复用完成。
+脱敏映射只有在 confirmed_by_user 为 true，并有 confirmed_at、confirmation_scope 和结构完整的 entries 后才可用于扫描。未确认时在读取待扫描文件前失败。扫描结果只返回条目 ID 与计数，不输出命中原文或上下文。
 
-编排纪律：
+## 阶段契约
 
-1. 门禁未过不得进入下一步；失败先自动整改重跑（如换词重检），不把失败甩给用户。
-2. 仅缺关键领域/方向、交付目录、未授权代改或需豁免门禁/改变技术范围时确认。当前请求已明确指定方向或委托修复同范围问题，则继续，不重复逐块询问；明确要求逐块确认时遵守。只读或先方案停在授权边界，豁免须真实记入 `user_confirmations`。
-3. 每步完成后更新 run manifest：`current_step`、`last_passed_gate`、工件路径、`user_confirmations`（只记真实发生的用户决策）；vault 存在时顺带 `vault.py update-case`。
-4. 交接字段要求见 [references/HANDOFF_CONTRACT.md](references/HANDOFF_CONTRACT.md)。
+1. 调研：保存研究问题、来源、日期、核验状态和失败渠道；结构检查不证明法律新颖性。
+2. 查新：沿用 evidence_pack，使用稳定 evidence_id 和 feature_id；候选数量由请求决定。没有已核验结果时记录真实无结果及检索轨迹，不编造引用。
+3. 背景材料：交付 background_pack，说明实际引用的来源、最接近材料和差异。IPR 包仅在 manifest 的 ipr_requested 为 true 时要求。
+4. 撰写：五段 Markdown、facts_ledger、feature_registry、来源映射和 Mermaid 图源文件。通过 --gate draft 检查实际文件。
+5. 审查：一致性审查和 IPR 审查都要明确完成。issue 使用稳定 ISSUE-... ID，贯穿报告、获准范围、修订计划、差异、复审和豁免。
+6. 修订：只有与用户已批准 issue 范围一致的修复可以复用原授权。新事实或新增保护范围须记录具体用户决定。修订后的材料哈希改变时，旧结论自动待复核。
+7. 交付：先由 `workflow_cli.py export` 通过导出前检查并生成 DOCX，再用 `workflow_cli.py check --gate deliver` 单独检查完整包。manifest 中声明的实际输出目录必须与交付目录相同；终稿 Markdown、DOCX、最新版 review_status 和源文件须指向同一版本。DOCX 已生成仍是待 deliver 检查状态。
 
-## 门禁命令速查
+## 题名与附图
 
-脚本自定位，任意工作目录可跑；`<dir>` = 本 skill 的 `scripts/` 目录：
+- 题名最多 24 个字。统一由共享常量与校验器执行，所有文档遵守同一上限。
+- 默认附图配置是 mermaid_only：交付实际引用的 .mmd 源文件，DOCX 可读地包含 Mermaid 源码，不要求 PNG 或 DOCX 位图。
+- 用户明确要求位图时，将 figure_delivery_mode 设为 mermaid_and_images；只校验终稿实际引用的图片和 DOCX 图片关系，不以 ZIP 中存在任意 media 文件代替引用检查。
 
-```
-python <dir>/run_phase_gates.py --gate research   --workspace . --manifest artifacts/run_manifest.md
-python <dir>/run_phase_gates.py --gate prior-art  --workspace . --manifest artifacts/run_manifest.md
-python <dir>/run_phase_gates.py --gate draft      --workspace . --manifest artifacts/run_manifest.md
-python <dir>/run_phase_gates.py --gate review     --workspace . --manifest artifacts/run_manifest.md
-python <dir>/run_phase_gates.py --gate deliver    --workspace . --deliver-dir "<交付目录>" --patent-title "<题名>" --manifest artifacts/run_manifest.md
-python <dir>/run_phase_gates.py --gate all        --workspace . --manifest artifacts/run_manifest.md
-```
+## 审查与交付判定
 
-prior-art 门禁支持领域自适应打分词表（解决换领域必挂的问题）：由 `patent-prior-art` 在检索时生成 `artifacts/prior_art/relevance_terms.json`，门禁自动采用；无此文件时退回内置 legacy 词表。
+review_status.json 必须明确 consistency_review 和 ipr_review 已完成，记录 issue disposition、具体高严重度用户豁免，并保存被审材料的 SHA-256。仅有报告文件不代表审查通过。无获准回改时 revision_validation 为 not_required，回改校验状态为 skipped；有回改时必须有有效 edit_plan、structured_diff 和 post-fix 检查。
 
-## 缓存复用（精简两级）
+结果字段含 checks_passed、workflow_complete、skipped、not_run、review_completed 和 revision_validation。checks_passed 只表示已执行检查通过；DOCX 生成返回 `generated_pending_delivery_check` 且 `workflow_complete: false`，只有后续 deliver 整包检查通过才可完成流程。缺少 LibreOffice 渲染会记录 `not_run`，不能声称全流程完成。切换 full_research、titled_evidence、draft_review 时，当前状态和失效范围只按选定模式的有效门禁计算，非活动门禁不阻断该模式。
 
-**初始化层**（长期复用）：`(template_source, reference_patent_source)` 的指纹未变 → 直接复用 `template_outline.txt`、`reference_patent_text.txt`、`template_rules.json`、`style_profile.md`；指纹变化、用户要求刷新或工件缺损才重跑 `patent-style`。命中与否记入 manifest（`initialization_reused`、`source_fingerprints`）。
+离线校验只确认结构、引用、版本、日期和声明状态，不提供法律新颖性、授权或不侵权保证。
 
-**研究层**（短期复用）：`research_scope_key`（domain + topic + constraints）相同且工件生成 ≤ 30 天 → 直接复用 research pack；否则重跑。只记 `research_scope_key` 与 `research_reused: true/false` 两个字段。
+## 宿主 Agent 与依赖
 
-单篇内容工件（题名、草稿、审查结果、背景包）**默认不跨 run 复用**；用户明确要求沿用时记入 `user_confirmations`。
-
-## 宿主适配
-
-本家族全部 skill 为宿主中立设计（参照 ponytail 模式）：正文只描述行为与能力优先级，不绑定特定宿主 API；门禁脚本为 stdlib-only Python，任何能执行 shell 的 agent 均可运行。涉及并行子代理的 skill（patent-research、patent-review）内置「并行 → solo 多轮」能力梯度，宿主不支持并行时自动降级，输出契约不变。
+门禁脚本只依赖 Python 3.10+ 标准库。DOCX 导出需要 python-docx；渲染检查使用本机 LibreOffice，未安装时为 not_run。CNIPA 浏览器检索需要可选 Playwright 与 Chromium。宿主 Agent 的检索工具、外部服务或专用 skills 只有在用户授权后才可处理案件材料；验证器本身不会调用模型或网络。

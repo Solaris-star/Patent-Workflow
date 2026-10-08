@@ -7,14 +7,14 @@ license: MIT
 metadata:
   hermes:
     tags: [patent, review, skill-maintenance, audit-contracts]
-    related_skills: [patent-review, patent-workflow-conventions]
+    related_skills: [patent-review]
 ---
 
 # Patent Review Skill Maintenance
 
 ## Overview
 
-维护专利交底书审查能力时，新增一项审查要求不能只改总路由文案。必须把审查范围、专属审查员清单、JSON 输出契约、报告模板和部署副本视为一个整体，避免“skill 声称支持、实际 agent 没执行”的假增强。
+维护专利交底书审查能力时，新增要求要同步到实际承担该视角的 skill、reviewer 提示词、输出契约及适用的验证器。仓库中的 agent 文件是静态提示词，不会自动部署或启动代理；只有核实存在宿主部署副本后，才能描述或验证该部署。
 
 本 skill 适用于公式审查、图文一致性、证据粒度、可行性等审查维度的新增与修复。它记录的是维护方法，不替代具体的专利审查规则。
 
@@ -27,15 +27,15 @@ metadata:
 
 ## 标准闭环
 
-1. 先读当前总 skill、相关 reviewer agent 和报告模板，确认真实文件路径与所有副本，不凭记忆改。
+1. 先读当前总 skill、实际存在的 reviewer 提示词、输出模板和验证器，确认真实文件路径与链接；不要假定存在其他 conventions、部署脚本或外部副本。
 2. 把新能力拆成职责边界：谁负责技术正确性，谁负责文档内部一致性，谁负责格式/渲染，避免两个 reviewer 重复或互相漏审。
 3. 更新技术 reviewer 的逐项清单。新增项必须包含检查动作、证据要求、无法核验时的状态，而不是只有一句“注意检查”。
 4. 更新 reviewer 的结构化输出。输出至少应能区分：未适用、已核验、被材料阻塞；评分维度也要独立，不能用一个旧字段代替多个新维度。
 5. 更新一致性 reviewer 的清单与输出，覆盖跨章节引用、符号、编号、范围、单位和导出渲染等文档级问题。
 6. 更新报告模板，使审查结果有落盘位置。新增字段要有说明，列表型字段要明确每项的定位、证据和结论。
 7. 更新总 skill 的分工、派发输入、汇总规则、评分口径和复审纪律。明确源文件与导出文件缺失时不能假装完成。
-8. 同步真源和已部署副本；修复失效软链接或部署引用后再验证，不要只看编辑成功提示。
-9. 做确定性验收：关键 marker 存在、源/副本字节一致、模板字段无重复、diff 无空白错误、部署后的 reviewer 文件可读。
+8. 修改仓库提示词不会自动更新宿主中的其他副本。只有宿主明确提供独立部署副本及访问能力时才核验其同步状态；否则报告本次仅更新提示词文件，不声称已部署。
+9. 做确定性验收：关键 marker 存在、链接和模板字段无重复、diff 无空白错误；部署副本只有宿主实际提供并验证后才记录。
 
 ## 状态纪律
 
@@ -69,11 +69,14 @@ metadata:
 - [ ] 一致性 reviewer 的检查清单与 JSON 契约已更新
 - [ ] 报告模板字段已更新且无重复
 - [ ] `not_applicable` / `checked` / `blocked` 语义已定义
-- [ ] 真源与部署副本一致
-- [ ] reviewer 引用可读且指向实际文件
+- [ ] 已确认是否存在宿主部署副本；存在且可访问时核对同步状态，否则注明未验证部署
+- [ ] reviewer 与公式审查引用可读且指向仓库实际文件
 - [ ] 关键 marker 检查通过
 - [ ] diff 检查通过
 
 ## 支持文件
-
-- `references/formula-review-contract.md`：公式专项审查的分工、状态和输出字段速查。
+- [patent-review/SKILL.md](../../../../patent-review/SKILL.md)
+- [一致性审查提示词](../../../../agents/patent-consistency-auditor.md)
+- [技术审查提示词](../../../../agents/patent-tech-reviewer.md)
+- [IPR 审查模板](../../../../patent-review/references/IPR_REVIEW_TEMPLATE.md)
+- [公式审查缺口记录](../../run-ops/formula-review-gap.md)

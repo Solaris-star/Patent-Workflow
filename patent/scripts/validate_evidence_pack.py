@@ -1,211 +1,276 @@
 #!/usr/bin/env python3
-"""Validate Phase 4 evidence pack artifact for patent-workflow.
+"""Validate the structure and traceability of the canonical Phase 4 evidence pack.
 
-Boundary note:
-- This validator checks evidence_pack structure + basic auditability.
-- Patent-specific search constraints (CN-only, <=1.5y, relevance thresholding) are enforced by
-  patent-workflow phase rules and validate_patent_candidates.py. This script focuses on:
-  - evidence pack completeness
-  - evidence alignment coverage
-  - separation between patent evidence vs auxiliary web evidence
-
-Usage:
-  python validate_evidence_pack.py artifacts/prior_art/phase_04_evidence_pack.json
-
-Exit codes:
-  0 = pass
-  2 = fail
+This is an offline structural check. It does not verify source authenticity or
+establish novelty, patentability, or grant likelihood.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except (AttributeError, OSError, ValueError):
-        pass
+ID_RE = re.compile(r"^[A-Z0-9][A-Z0-9._-]*$")
+FEATURE_RE = re.compile(r"^F-[A-Z0-9][A-Z0-9._-]*$")
+EVIDENCE_KINDS = {"implemented_fact", "source_claim", "inference", "pending_confirmation"}
+FRESHNESS = {"fresh", "valid", "stale", "unknown", "historical", "not_applicable"}
+VERIFICATION = {"verified", "unverified", "needs_review", "failed"}
+CONCLUSION_USE = {"usable", "pending_reverification", "context_only"}
 
 
-def _is_http_url(u: str) -> bool:
-    try:
-        p = urlparse(u)
-        return p.scheme in ("http", "https") and bool(p.netloc)
-    except Exception:
+def _list(value: object) -> list:
+    return value if isinstance(value, list) else []
+
+
+def _obj(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _valid_url(value: object) -> bool:
+    if not isinstance(value, str):
         return False
+    parsed = urlparse(value.strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-def _require(cond: bool, msg: str, errors: list[str]):
-    if not cond:
-        errors.append(msg)
+def _valid_date(value: object, *, allow_unknown: bool = False) -> bool:
+    if allow_unknown and value == "unknown":
+        return True
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        date.fromisoformat(value.strip()[:10])
+        return True
+    except ValueError:
+        try:
+            datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+            return True
+        except ValueError:
+            return False
 
 
-def _as_list(x):
-    return x if isinstance(x, list) else []
+def _is_choice(value: object, choices: set[str]) -> bool:
+    return isinstance(value, str) and value in choices
 
 
-def _as_dict(x):
-    return x if isinstance(x, dict) else {}
+def validate(data: object) -> tuple[list[str], dict]:
+    errors: list[str] = []
+    counts = {
+        "evidence": 0, "features": 0, "alignments": 0, "verified": 0,
+        "usable_for_current_conclusions": 0, "pending_reverification": 0,
+    }
+    if not isinstance(data, dict):
+        return ["evidence pack must be a JSON object"], counts
 
+    if data.get("pack_type") != "evidence_pack":
+        errors.append("pack_type must be 'evidence_pack'")
+    if data.get("phase") != "phase_04":
+        errors.append("phase must be 'phase_04'")
+    if not str(data.get("patent_candidate_pool_path", "")).strip():
+        errors.append("patent_candidate_pool_path is required")
 
-def _is_aux(ev: dict) -> bool:
-    return bool(ev.get("is_auxiliary", False))
+    search_trace = _obj(data.get("search_trace"))
+    if not search_trace:
+        errors.append("search_trace must be an object, including when a search was degraded")
+    queries = search_trace.get("patent_search_queries")
+    if not isinstance(queries, list):
+        errors.append("search_trace.patent_search_queries must be a list")
+    declared_count = search_trace.get("final_relevant_patent_count")
+    patents = data.get("final_relevant_patents")
+    if patents is not None and not isinstance(patents, list):
+        errors.append("final_relevant_patents must be a list when present")
+    elif isinstance(patents, list) and isinstance(declared_count, int) and declared_count != len(patents):
+        errors.append("search_trace.final_relevant_patent_count does not match final_relevant_patents length")
+
+    features = _list(data.get("scheme_features"))
+    evidence = _list(data.get("evidence"))
+    alignments = _list(data.get("evidence_alignment"))
+    if not features:
+        errors.append("scheme_features must identify the features considered in this search")
+    if not evidence:
+        errors.append("evidence must contain at least one source record; do not fabricate records to meet a count")
+    if data.get("evidence_alignment") is not None and not isinstance(data.get("evidence_alignment"), list):
+        errors.append("evidence_alignment must be a list when present")
+
+    feature_by_id: dict[str, dict] = {}
+    for index, item in enumerate(features):
+        if not isinstance(item, dict):
+            errors.append(f"scheme_features[{index}] must be an object")
+            continue
+        feature_id = str(item.get("feature_id", "")).strip()
+        if not FEATURE_RE.fullmatch(feature_id):
+            errors.append(f"scheme_features[{index}].feature_id must use stable F-... form")
+        elif feature_id in feature_by_id:
+            errors.append(f"duplicate feature_id: {feature_id}")
+        else:
+            feature_by_id[feature_id] = item
+        if not str(item.get("statement", item.get("description", ""))).strip():
+            errors.append(f"scheme_features[{index}].statement is required")
+        kind = item.get("evidence_kind")
+        status = item.get("status")
+        if not _is_choice(kind, EVIDENCE_KINDS):
+            errors.append(f"scheme_features[{index}].evidence_kind is invalid")
+        if kind == "pending_confirmation" and status != "pending":
+            errors.append(f"scheme_features[{index}] pending confirmation must have status='pending'")
+        if (
+            _is_choice(kind, EVIDENCE_KINDS - {"pending_confirmation"})
+            and not _is_choice(status, {"confirmed", "source_stated"})
+        ):
+            errors.append(f"scheme_features[{index}].status must distinguish confirmed/source-stated facts")
+        refs = item.get("evidence_ids")
+        if not isinstance(refs, list):
+            errors.append(f"scheme_features[{index}].evidence_ids must be a list")
+
+    evidence_by_id: dict[str, dict] = {}
+    for index, item in enumerate(evidence):
+        if not isinstance(item, dict):
+            errors.append(f"evidence[{index}] must be an object")
+            continue
+        evidence_id = str(item.get("evidence_id", "")).strip()
+        if not ID_RE.fullmatch(evidence_id):
+            errors.append(f"evidence[{index}].evidence_id must be a stable non-empty identifier")
+        elif evidence_id in evidence_by_id:
+            errors.append(f"duplicate evidence_id: {evidence_id}")
+        else:
+            evidence_by_id[evidence_id] = item
+        if not _valid_url(item.get("url")):
+            errors.append(f"evidence[{index}].url must be an http(s) URL")
+        if not str(item.get("excerpt", "")).strip():
+            errors.append(f"evidence[{index}].excerpt is required")
+
+        publication_date = item.get("publication_date", item.get("date"))
+        if not _valid_date(publication_date, allow_unknown=True):
+            errors.append(f"evidence[{index}].publication_date must be ISO date/datetime or 'unknown'")
+        freshness = item.get("freshness")
+        if not _is_choice(freshness, FRESHNESS):
+            errors.append(f"evidence[{index}].freshness must state its age assessment")
+        verification = item.get("verification_status")
+        if not _is_choice(verification, VERIFICATION):
+            errors.append(f"evidence[{index}].verification_status must be explicit")
+        if verification == "verified":
+            counts["verified"] += 1
+            if not _valid_date(item.get("verified_at")):
+                errors.append(f"evidence[{index}].verified_at is required for verified evidence")
+            if not str(item.get("verification_method", "")).strip():
+                errors.append(f"evidence[{index}].verification_method is required for verified evidence")
+        if publication_date == "unknown" and _is_choice(freshness, {"fresh", "valid"}):
+            errors.append(f"evidence[{index}] cannot claim fresh/valid status with an unknown publication date")
+        conclusion_use = item.get("conclusion_use")
+        if not _is_choice(conclusion_use, CONCLUSION_USE):
+            errors.append(
+                f"evidence[{index}].conclusion_use must be usable, pending_reverification, or context_only"
+            )
+        elif conclusion_use == "usable":
+            if verification != "verified" or not _is_choice(freshness, {"fresh", "valid"}):
+                errors.append(
+                    f"evidence[{index}] cannot be used in a current conclusion until its task-specific status is verified"
+                )
+            else:
+                counts["usable_for_current_conclusions"] += 1
+        elif conclusion_use == "pending_reverification":
+            counts["pending_reverification"] += 1
+
+        refs = item.get("feature_ids")
+        if not isinstance(refs, list) or not refs:
+            errors.append(f"evidence[{index}].feature_ids must link the source to one or more stable features")
+        else:
+            for feature_id in refs:
+                if not isinstance(feature_id, str) or feature_id not in feature_by_id:
+                    errors.append(f"evidence[{index}] references an unknown feature_id")
+
+    for feature_id, feature in feature_by_id.items():
+        refs = feature.get("evidence_ids")
+        if not isinstance(refs, list):
+            continue
+        seen_refs: set[str] = set()
+        for evidence_id in refs:
+            if not isinstance(evidence_id, str) or evidence_id not in evidence_by_id:
+                errors.append(f"feature {feature_id} references an unknown evidence_id")
+                continue
+            if evidence_id in seen_refs:
+                errors.append(f"feature {feature_id} repeats evidence_id {evidence_id}")
+            seen_refs.add(evidence_id)
+            source_features = _list(evidence_by_id[evidence_id].get("feature_ids"))
+            if feature_id not in source_features:
+                errors.append(f"feature/evidence mapping is inconsistent for {feature_id} and {evidence_id}")
+        for evidence_id, source in evidence_by_id.items():
+            if feature_id in _list(source.get("feature_ids")) and evidence_id not in refs:
+                errors.append(f"evidence {evidence_id} maps to {feature_id} but the feature omits that evidence_id")
+
+    for index, item in enumerate(alignments):
+        if not isinstance(item, dict):
+            errors.append(f"evidence_alignment[{index}] must be an object")
+            continue
+        feature_id = str(item.get("feature_id", "")).strip()
+        if feature_id not in feature_by_id:
+            errors.append(f"evidence_alignment[{index}] references an unknown feature_id")
+        refs = item.get("evidence_ids")
+        if not isinstance(refs, list) or not refs:
+            errors.append(f"evidence_alignment[{index}].evidence_ids must be a non-empty list")
+        else:
+            for evidence_id in refs:
+                if not isinstance(evidence_id, str) or evidence_id not in evidence_by_id:
+                    errors.append(f"evidence_alignment[{index}] references an unknown evidence_id")
+                elif feature_id and feature_id not in _list(evidence_by_id[evidence_id].get("feature_ids")):
+                    errors.append(f"evidence_alignment[{index}] evidence does not map to its feature_id")
+
+    counts.update({"evidence": len(evidence), "features": len(features), "alignments": len(alignments)})
+    return errors, counts
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Validate phase_04 evidence_pack.json structure")
-    ap.add_argument("input", help="Path to phase_04_evidence_pack.json")
-    ap.add_argument("--output", help="Optional path to write validation summary JSON")
-    ap.add_argument("--min-final", type=int, default=5)
-    ap.add_argument("--min-alignments", type=int, default=3)
-    ap.add_argument("--min-excerpt-len", type=int, default=50)
-    args = ap.parse_args()
-
-    now = datetime.now(timezone.utc)
+    parser = argparse.ArgumentParser(description="Validate Phase 4 evidence-pack structure and traceability")
+    parser.add_argument("input")
+    parser.add_argument("--output")
+    parser.add_argument("--min-final", type=int, default=0, help="Optional caller-requested candidate threshold")
+    parser.add_argument("--min-alignments", type=int, default=0, help="Optional caller-requested alignment threshold")
+    args = parser.parse_args()
     inp = Path(args.input)
-
     errors: list[str] = []
-    _require(inp.exists(), f"Input file not found: {inp}", errors)
-    if errors:
-        summary = {
-            "validator": "validate_evidence_pack.py",
-            "generatedAt": now.isoformat(),
-            "inputPath": str(inp),
-            "passed": False,
-            "errors": errors,
-        }
-        print(json.dumps(summary, ensure_ascii=False, indent=2))
-        return 2
-
+    counts: dict = {"evidence": 0, "features": 0, "alignments": 0, "verified": 0}
     try:
         data = json.loads(inp.read_text(encoding="utf-8"))
-    except Exception as e:
-        summary = {
-            "validator": "validate_evidence_pack.py",
-            "generatedAt": now.isoformat(),
-            "inputPath": str(inp.resolve()),
-            "passed": False,
-            "errors": [f"JSON parse error: {e}"],
-        }
-        print(json.dumps(summary, ensure_ascii=False, indent=2))
-        return 2
+        errors, counts = validate(data)
+        if args.min_final and len(_list(_obj(data).get("final_relevant_patents"))) < args.min_final:
+            errors.append(f"final_relevant_patents length is below requested threshold {args.min_final}")
+        if args.min_alignments and counts["alignments"] < args.min_alignments:
+            errors.append(f"evidence_alignment length is below requested threshold {args.min_alignments}")
+    except FileNotFoundError:
+        errors = ["evidence pack was not found"]
+    except (OSError, json.JSONDecodeError):
+        errors = ["evidence pack could not be read as JSON"]
 
-    pack_type = data.get("pack_type")
-    phase = data.get("phase")
-
-    _require(pack_type == "evidence_pack", "pack_type must be 'evidence_pack'", errors)
-    _require(phase == "phase_04", "phase must be 'phase_04'", errors)
-
-    pool_path = (data.get("patent_candidate_pool_path") or "").strip()
-    _require(bool(pool_path), "patent_candidate_pool_path is required", errors)
-
-    final_patents = _as_list(data.get("final_relevant_patents"))
-    search_trace = _as_dict(data.get("search_trace"))
-    final_count = search_trace.get("final_relevant_patent_count")
-
-    # The measured array is authoritative; a self-reported count that disagrees
-    # with it is an error (self-report 5 with 3 actual items must not pass).
-    if final_patents:
-        _require(len(final_patents) >= args.min_final, f"final_relevant_patents length < {args.min_final}", errors)
-        if isinstance(final_count, int) and final_count != len(final_patents):
-            errors.append(
-                f"search_trace.final_relevant_patent_count ({final_count}) != "
-                f"final_relevant_patents length ({len(final_patents)})"
-            )
-    elif isinstance(final_count, int):
-        _require(final_count >= args.min_final, f"final_relevant_patent_count < {args.min_final}", errors)
-    else:
-        errors.append(f"final_relevant_patents length < {args.min_final}")
-
-    queries = _as_list(search_trace.get("patent_search_queries"))
-    _require(len(queries) >= 1, "search_trace.patent_search_queries must be non-empty", errors)
-
-    evidence = _as_list(data.get("evidence"))
-    alignments = _as_list(data.get("evidence_alignment"))
-
-    _require(len(evidence) >= 1, "evidence must be non-empty", errors)
-    _require(len(alignments) >= args.min_alignments, f"evidence_alignment length < {args.min_alignments}", errors)
-
-    ev_by_id: dict[str, dict] = {}
-    aux_count = 0
-    patent_evidence_count = 0
-
-    for i, ev in enumerate(evidence):
-        if not isinstance(ev, dict):
-            errors.append(f"evidence[{i}] must be object")
-            continue
-        eid = (ev.get("evidence_id") or "").strip()
-        url = (ev.get("url") or "").strip()
-        excerpt = (ev.get("excerpt") or "").strip()
-
-        _require(bool(eid), f"evidence[{i}].evidence_id missing", errors)
-        _require(_is_http_url(url), f"evidence[{i}].url not http(s): {url}", errors)
-        _require(len(excerpt) >= args.min_excerpt_len, f"evidence[{i}].excerpt too short (<{args.min_excerpt_len})", errors)
-
-        if eid:
-            ev_by_id[eid] = ev
-
-        if _is_aux(ev):
-            aux_count += 1
-        else:
-            # treat as "patent evidence" for gating purposes
-            patent_evidence_count += 1
-
-    _require(patent_evidence_count >= 1, "at least 1 non-auxiliary (patent) evidence item is required", errors)
-
-    for i, a in enumerate(alignments):
-        if not isinstance(a, dict):
-            errors.append(f"evidence_alignment[{i}] must be object")
-            continue
-        eids = _as_list(a.get("evidence_ids"))
-        _require(len(eids) >= 1, f"evidence_alignment[{i}].evidence_ids must be non-empty", errors)
-
-        # must include at least 1 non-aux evidence
-        non_aux_ok = False
-        for eid in eids:
-            if not isinstance(eid, str) or not eid.strip():
-                continue
-            if eid.strip() not in ev_by_id:
-                errors.append(f"evidence_alignment[{i}] references unknown evidence_id: {eid}")
-                continue
-            if not _is_aux(ev_by_id[eid.strip()]):
-                non_aux_ok = True
-
-        _require(non_aux_ok, f"evidence_alignment[{i}] must reference >=1 non-auxiliary patent evidence", errors)
-
+    structure_valid = not errors
+    conclusion_ready = structure_valid and counts["usable_for_current_conclusions"] > 0
     summary = {
         "validator": "validate_evidence_pack.py",
-        "generatedAt": now.isoformat(),
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
         "inputPath": str(inp.resolve()),
-        "thresholds": {
-            "minFinal": args.min_final,
-            "minAlignments": args.min_alignments,
-            "minExcerptLen": args.min_excerpt_len,
-        },
-        "counts": {
-            "finalRelevantPatents": len(final_patents),
-            "evidence": len(evidence),
-            "evidenceAlignment": len(alignments),
-            "evidenceAuxiliary": aux_count,
-            "evidenceNonAuxiliary": patent_evidence_count,
-            "patentSearchQueries": len(queries),
-        },
-        "passed": len(errors) == 0,
+        "checks_passed": structure_valid,
+        "structure_only": True,
+        "structure_valid": structure_valid,
+        "conclusion_ready": conclusion_ready,
+        "workflow_complete": conclusion_ready,
+        "legal_novelty_assessed": False,
+        "uniform_expiry_days_applied": False,
+        "counts": counts,
+        "requested_thresholds": {"min_final": args.min_final, "min_alignments": args.min_alignments},
+        "passed": structure_valid,
         "errors": errors,
     }
-
-    out = json.dumps(summary, ensure_ascii=False, indent=2)
+    result = json.dumps(summary, ensure_ascii=False, indent=2)
     if args.output:
-        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.output).write_text(out, encoding="utf-8")
+        target = Path(args.output)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(result, encoding="utf-8")
     else:
-        print(out)
-
-    return 0 if summary["passed"] else 2
+        print(result)
+    return 0 if not errors else 2
 
 
 if __name__ == "__main__":

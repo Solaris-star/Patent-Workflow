@@ -1,36 +1,21 @@
-# 附图交付检查清单（FIGURE_DELIVERY_CHECKLIST）
+# Figure delivery checklist
 
-用于附图生成、导出与归档前的单独核对。
+## Source of truth
 
-## 图稿源文件
+- [ ] Every figure has a stable figure ID and caption in the facts ledger.
+- [ ] Every registered figure has a non-empty `.mmd` Mermaid source in the delivery directory.
+- [ ] The relevant draft section refers to each registered figure ID or caption.
+- [ ] The figure source and its references are included in the hashes for the reviewed version.
 
-- [ ] 每张附图均已保留 `.mmd` 源（**mmd 即是可编辑源**，不要求 drawio/vsdx/png）。
-- [ ] 图稿文件名与图号一一对应，不存在图1/图2混用或文件名漂移。
-- [ ] part_04 中每张图文字说明后紧跟该图可见 Mermaid 代码块。
+## Delivery mode
 
-## 图稿生成策略
+The default is `mermaid_only`: preserve the editable `.mmd` and include Mermaid source in the DOCX. Do not require PNG, SVG, draw.io, or VSDX files in this mode.
 
-- [ ] 仅用 Mermaid（`.mmd`）表达逻辑与节点关系。
-- [ ] **默认不生成、不嵌入 png/svg**；用户显式要求预览图时才可另存，且不得写入交底书/docx。
-- [ ] 节点文字语义清晰，ID 用字母数字。
+When the user requests rendered figures, set `figure_delivery_mode: mermaid_and_images` in the manifest:
 
-## 文内联动（四方一致）
+- [ ] Each declared rendered image exists and is referenced by the delivered Markdown.
+- [ ] Each referenced image is embedded in the exported DOCX through an image relationship.
+- [ ] The image relationship points to a real package member; checking only for files under `word/media` is insufficient.
+- [ ] The DOCX text and render health are checked separately from the existence of the source files.
 
-- [ ] 附图说明中的图号定义与 mmd 文件名一一对应。
-- [ ] 正文中「如图1所示/如图2所示」引用与附图说明一致。
-- [ ] docx 中附图以 Mermaid 源码块顺序呈现，与 part_04 一致。
-- [ ] facts_ledger 中 `mermaid_source_embedded_in_docx = true`。
-- [ ] 合并稿/docx **无** `![...](...png/svg)` 位图引用。
-
-## 终稿导出
-
-- [ ] 终稿 docx 已生成且命名正确。
-- [ ] 终稿 **不要求** `word/media` 非空。
-- [ ] 多次 patch/export 遗留的测试图、临时图、备份图已清理。
-
-## 目录归档
-
-- [ ] 附图目录至少保留 `.mmd`。
-- [ ] 不强制保留 `.drawio` / `.vsdx` / `.png` / `.svg`。
-- [ ] 交付根目录只保留最新正式 docx。
-- [ ] 评价、审查、对比与过程说明文件已移入 `artifacts/`。
+If a local rendering tool is unavailable, record `not_run` and leave workflow completion false. Do not describe the render as successful.

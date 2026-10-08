@@ -40,7 +40,7 @@ def _extract_output_dir(md: str) -> str | None:
     # Match line: - `output_dir`: <value>   # optional template comment
     # Comment stripping mirrors run_phase_gates._manifest_field so the two
     # manifest parsers agree ('#' inside a path survives; ' # …' is a comment).
-    m = re.search(r"^\s*-\s*`output_dir`\s*:\s*(.*)$", md, flags=re.MULTILINE)
+    m = re.search(r"^[ \t]*-[ \t]*`?output_dir`?[ \t]*:[ \t]*(.*)$", md, flags=re.MULTILINE)
     if not m:
         return None
     v = re.sub(r"(?:^|\s+)#.*$", "", m.group(1)).strip().strip("`").strip()
@@ -64,6 +64,7 @@ def _is_abs_path(p: str) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Assert output_dir exists in run manifest and is absolute")
     ap.add_argument("manifest", help="Path to markdown run manifest")
+    ap.add_argument("--expected-dir", help="Optional concrete delivery directory to bind to output_dir")
     ap.add_argument("--out", help="Optional output path for JSON summary")
     args = ap.parse_args()
 
@@ -90,6 +91,11 @@ def main() -> int:
             summary["errors"].append("output_dir is empty/placeholder; user must explicitly provide an absolute path")
         elif not _is_abs_path(out_dir):
             summary["errors"].append(f"output_dir is not an absolute path: {out_dir}")
+        elif args.expected_dir:
+            expected = Path(args.expected_dir)
+            declared = Path(out_dir)
+            if os.path.normcase(str(expected.resolve())) != os.path.normcase(str(declared.resolve())):
+                summary["errors"].append("declared output_dir does not match the actual delivery directory")
 
     summary["passed"] = len(summary["errors"]) == 0
 

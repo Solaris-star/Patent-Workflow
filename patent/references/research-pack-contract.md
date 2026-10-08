@@ -1,93 +1,149 @@
-# Research Pack 输出契约
+# Research and evidence pack contracts
 
-`patent-research` 与 `patent-research-cli` 的产出契约完全相同——门禁不关心调研是多子代理并行还是 CLI 一键完成。本文件是两者的唯一真源。
+These JSON artifacts preserve the existing research_pack and evidence_pack as the workflow sources of truth. They add provenance fields and references; they do not create a second fact database. Use synthetic or case-local source data only. Never copy case material into repository examples.
 
-## 落盘工件（必须）
+## Phase 2 research pack
 
-路径固定：`artifacts/research/phase_02_research_pack.json`
+Path: artifacts/research/phase_02_research_pack.json
 
-```json
+~~~json
 {
   "pack_type": "research_pack",
   "phase": "phase_02",
   "research_questions": [
-    { "id": "RQ1", "question": "当前行业主流方法是什么？" }
+    {"id": "RQ-01", "question": "A question in the requested research scope"}
   ],
   "outline_skeleton": [
     {
-      "section_id": "S1",
-      "title": "背景与痛点",
-      "intent": "说明现有技术缺陷",
-      "covers_questions": ["RQ1"],
-      "evidence_ids": ["E1", "E2"]
+      "section_id": "S-01",
+      "title": "Research finding",
+      "intent": "Explain the evidence and limits",
+      "covers_questions": ["RQ-01"],
+      "evidence_ids": ["E-01"]
     }
   ],
   "evidence": [
     {
-      "evidence_id": "E1",
-      "url": "https://example.com/page",
-      "excerpt": "从已抓取正文中摘录的原文片段，至少 50 个字符，能支撑对应结论……",
-      "source_tier": "L2",
-      "claim": "该证据支撑的主张",
-      "date": "2026-05-01",
-      "freshness": "fresh"
+      "evidence_id": "E-01",
+      "url": "https://example.com/source",
+      "excerpt": "Synthetic excerpt used to demonstrate the record shape.",
+      "claim": "A source-stated claim, not an established fact",
+      "publication_date": "2026-07-15",
+      "freshness": "fresh",
+      "verification_status": "verified",
+      "verified_at": "2026-10-08T00:00:00Z",
+      "verification_method": "Source page opened and metadata checked",
+      "conclusion_use": "usable"
     }
   ]
 }
-```
+~~~
 
-**硬性字段要求**（`validate_research_pack.py` 逐项校验，缺一即 fail）：
+The research pack must have non-empty question, outline, and evidence arrays. The validators impose no count quotas beyond a usable record. Optional --min-questions, --min-outline, and --min-evidence flags are caller-requested thresholds; default is zero. Evidence IDs are unique within a pack. Every outline reference must resolve to an actual question or evidence record.
 
-| 字段 | 最低要求 |
-|---|---|
-| `pack_type` | 必须是 `"research_pack"` |
-| `phase` | 必须是 `"phase_02"` |
-| `research_questions` | ≥ 8 条，每条含非空 `id` + `question` |
-| `outline_skeleton` | ≥ 5 节，每节含非空 `section_id` + `title` + `intent`；`covers_questions` / `evidence_ids` 引用的 ID 必须真实存在 |
-| `evidence` | ≥ 8 条，每条含非空 `evidence_id` + http(s) `url` + ≥ 50 字符 `excerpt` |
+Each evidence item records a publication date or the explicit value unknown, a task-specific freshness label, verification_status, and conclusion_use. `conclusion_use` is `usable`, `pending_reverification`, or `context_only`; only verified evidence with a known publication date and a current task-specific freshness assessment may be marked usable. Allowed verification statuses are verified, unverified, needs_review, and failed. A verified record also has verified_at and verification_method. Unknown publication dates cannot be labeled fresh or valid. Excerpts may be short; no character count is used as a proxy for quality. There is no universal expiry window: re-check freshness for the requested question, jurisdiction, and date scope.
 
-`source_tier` / `claim` 为推荐字段；**`date` 与 `freshness` 为契约必填**（validator 暂不强制，但缺失即视为调研质量缺陷）：
+## Phase 4 canonical evidence pack
 
-- `date`：来源页面的发布/提交日期；确实无法确定时填 `"unknown"` 并降权，禁止猜测。
-- `freshness`：按 `freshness_window`（默认 18 个月）分级——`fresh`（≤6 个月）/ `valid`（6 个月~窗口内）/ `stale`（超窗口）。
-- **时效红线**：支撑「现状/前沿/竞品动向」类结论的证据必须是 `fresh`/`valid`；`stale` 证据只能作技术基线与历史背景，且必须显式标注。AI/自动驾驶等快演化领域建议维持默认 18 个月窗口；用户显式调整窗口时以 manifest 记录值为准，全家族按同一值执行。
+Path: artifacts/prior_art/phase_04_evidence_pack.json
 
-## 汇报层输出（必须，Markdown）
+~~~json
+{
+  "pack_type": "evidence_pack",
+  "phase": "phase_04",
+  "patent_candidate_pool_path": "artifacts/prior_art/phase_04_patent_candidate_pool.json",
+  "search_trace": {
+    "patent_search_queries": ["synthetic example query"],
+    "final_relevant_patent_count": 1
+  },
+  "final_relevant_patents": [{"evidence_id": "E-01"}],
+  "scheme_features": [
+    {
+      "feature_id": "F-01",
+      "statement": "Synthetic feature statement",
+      "evidence_kind": "source_claim",
+      "status": "source_stated",
+      "evidence_ids": ["E-01"]
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "E-01",
+      "url": "https://example.com/source",
+      "excerpt": "Synthetic excerpt used to demonstrate the record shape.",
+      "publication_date": "2026-07-15",
+      "freshness": "fresh",
+      "verification_status": "verified",
+      "verified_at": "2026-10-08T00:00:00Z",
+      "verification_method": "Source page opened and metadata checked",
+      "conclusion_use": "usable",
+      "feature_ids": ["F-01"],
+      "is_auxiliary": false
+    }
+  ],
+  "evidence_alignment": [
+    {"feature_id": "F-01", "evidence_ids": ["E-01"]}
+  ]
+}
+~~~
 
-在最终回复中给出（不进 JSON 门禁，供用户决策与 manifest 留痕）：
+Stable feature IDs use F-... and evidence IDs are unique. Each source record maps to one or more registered feature IDs; each feature lists the same supporting evidence IDs. evidence_kind distinguishes implemented_fact, source_claim, inference, and pending_confirmation. A pending feature has status pending; other kinds have confirmed or source_stated status. Feature references and optional evidence_alignment references must resolve in both directions.
 
-```markdown
-## Research Scope
-- objective / domain_scope / fixed_topic_or_title / application_scenario
+Evidence records require an HTTP(S) source URL, a non-empty excerpt, a publication_date (or date) in ISO form or unknown, a task-specific freshness label, verification_status, and conclusion_use. `usable` requires verified status and a fresh/valid assessment for this task; uncertain, stale, or unverified records remain pending or context only. No default patent-count, alignment-count, or excerpt-length quota is applied. Optional --min-final and --min-alignments flags apply only when the caller explicitly requests those thresholds. An unsuccessful or degraded search should be described in search_trace; do not invent citations to satisfy a quota.
 
-## Channels
-- channels_used / channel_failures / fallback_actions / degraded_run
+## Phase 5 background pack
 
-## Evidence Table（≥ 3 行核心证据的人类可读摘要）
-| Claim | Source URL | Tier | Confidence | Notes |
+Path: artifacts/prior_art/phase_05_background_pack.json
 
-## Candidate Directions（2-3 个技术主轴明确不同的方向）
-| Direction | Novelty | Practicality | Why It May Be Patentable |
+~~~json
+{
+  "pack_type": "background_pack",
+  "phase": "phase_05",
+  "closest_source_evidence_id": "E-01",
+  "evidence_ids": ["E-01"],
+  "feature_comparisons": [
+    {
+      "feature_id": "F-01",
+      "evidence_ids": ["E-01"],
+      "difference": "Synthetic comparison statement; explain what the source says and what remains distinct or unknown."
+    }
+  ]
+}
+~~~
 
-## Recommendation
-- recommended_direction / recommended_title_seed
+The background validator requires the closest source and every comparison source to resolve to the canonical evidence_pack and have verification_status verified with conclusion_use usable. Each compared feature must exist in scheme_features and be linked to the cited evidence. Every feature is covered; differences are explicit. A source count or patent-like identifier is not proof of authenticity.
 
-## Needs Patent Verification
-- claims_requiring_patent_verification（交给 patent-prior-art 核验的主张列表）
-```
+## Optional IPR pack
 
-## 质量规则
+Path: artifacts/prior_art/phase_05_ipr_pack.json. Create and validate this pack only when the run manifest explicitly records ipr_requested: true. The validation CLI additionally requires --ipr-requested so a pack cannot pass via an accidental invocation.
 
-1. 无固定题目时：先发散 3-7 个候选主题簇，收敛为 **2-3 个技术主轴明确不同**的候选方向；同一技术轴的轻微改写不得伪装成多个方向。
-2. 有固定题目时：只产出该题目下的 2-3 个创新切入轴，不扩大范围。
-3. 每个核心结论遵守 fetch_before_claim：结论必须能回指到 `evidence[]` 中已抓取的条目。
-4. 主证据优先 L1-L2；L3-L4 只作补充线索。
-5. 禁止编造专利号、论文、产品、日期、指标；禁止把未抓取验证的 URL 写入 `evidence[]`。
+~~~json
+{
+  "pack_type": "ipr_pack",
+  "phase": "phase_05",
+  "assessments": [
+    {
+      "assessment_id": "IPR-01",
+      "scope": "A defined review question",
+      "feature_ids": ["F-01"],
+      "evidence_ids": ["E-01"],
+      "status": "reviewed",
+      "summary": "Synthetic evidence summary",
+      "limitations": "This structure check does not validate the legal analysis."
+    }
+  ]
+}
+~~~
 
-## 门禁命令
+Each assessment links stable feature IDs and only verified, currently usable evidence IDs. Status is reviewed, no_evidence, or pending. Incomplete/no-evidence assessments state their limitations; they do not imply clearance. No IPR result is produced unless explicitly requested.
 
-```
-python <patent-skill-dir>/scripts/run_phase_gates.py --gate research --workspace . --manifest artifacts/run_manifest.md
-```
+## Commands and limits
 
-通过后方可进入方向收敛与 patent-prior-art。
+~~~powershell
+python patent/scripts/validate_research_pack.py artifacts/research/phase_02_research_pack.json
+python patent/scripts/validate_evidence_pack.py artifacts/prior_art/phase_04_evidence_pack.json
+python patent/scripts/validate_background_pack.py artifacts/prior_art/phase_05_background_pack.json --evidence-pack artifacts/prior_art/phase_04_evidence_pack.json
+python patent/scripts/validate_ipr_pack.py artifacts/prior_art/phase_05_ipr_pack.json --evidence-pack artifacts/prior_art/phase_04_evidence_pack.json --ipr-requested
+~~~
+
+These are offline structure and stated-provenance checks. They do not open the source URLs, establish source authenticity, assess legal novelty or non-obviousness, guarantee patentability, or promise a grant.

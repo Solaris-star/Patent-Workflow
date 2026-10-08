@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "sample_roots": [
+    "examples",
+    "samples",
+    "patent/examples",
+    "patent/references/examples"
+  ],
+  "samples": [
+    {
+      "path": "patent/references/examples/synthetic-flow.mmd",
+      "sha256": "04ba43396ff533dd06770eda1e22f92d06666874cf50b13f41e35152d1acaf14",
+      "source_status": "synthetic",
+      "human_review_status": "pending"
+    }
+  ]
+}

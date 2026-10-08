@@ -1,64 +1,56 @@
-# 交接契约（HANDOFF_CONTRACT）
+# Stage Handoff Contract
 
-各步骤进入下一步前的最小交接字段。字段写入 `artifacts/run_manifest.md`。
+Each stage updates the same manifest. Handoff records must describe the actual workspace artifacts and user decisions, not planned or inferred work.
 
-## 开局 → 调研
+## Run scope
 
-- `domain_scope`（用户给定或待交叉发现）
-- `fixed_topic_or_title`（可为空）
-- `output_dir`（冷启动必须由用户明确给出的绝对路径）
-- `capability_profile`（本轮能力探测结果）
-- `source_fingerprints`（有模板/参考件时）
+- workflow_mode is full_research, titled_evidence, or draft_review.
+- search_depth records the requested depth: light, balanced, or deep.
+- output_dir is stored as an absolute path resolving to the explicitly selected local delivery directory.
+- final_title and working_title are at most 24 characters.
+- figure_delivery_mode defaults to mermaid_only. mermaid_and_images is opt-in.
+- ipr_requested is true only when the user requested an IPR research pack.
+- confirmed user decisions are recorded with their actual scope.
 
-## 初始化层（patent-style）→ 写作可用
+## Evidence and features
 
-四件工件就绪或显式跳过：
+- Preserve phase_04_evidence_pack.json and facts_ledger.json as the evidence and fact sources of truth.
+- Assign stable feature IDs in the form F-... and stable evidence IDs. Do not create a parallel facts database.
+- Link each feature to source IDs, evidence IDs, disclosure paragraph IDs, and figure IDs that actually support it.
+- Source types distinguish material, code, external_evidence, disclosure_paragraph, and figure. Material and code sources carry SHA-256 fingerprints.
+- Evidence records include a source URL, excerpt, publication date when available, verification status, verification date, and referenced feature IDs.
+- Offline validators confirm structure and stated provenance only. They do not establish authenticity, novelty, patentability, or grant likelihood.
+- A background pack points to actual verified evidence IDs and identifies the closest source and differences. No source-count target or patent-like number establishes authenticity.
+- Create the IPR pack only when ipr_requested is true.
 
-- `template_rules.json` 就绪 / 复用命中 / `template_not_provided = true`
-- `style_profile.md` 就绪 / 复用命中 / `reference_patent_not_provided = true`
-- `initialization_reused` 已记录
+## Draft and figures
 
-## 存量挖掘（patent-mine）→ 方向收敛
+- The draft gate checks the actual five Markdown parts under artifacts/draft, facts_ledger, source links, and every registered Mermaid file.
+- Mermaid-only is the default: each figure has an existing .mmd source and a visible source block in the generated DOCX. Images are optional.
+- In mermaid_and_images mode, every required image must exist in the delivery directory and be referenced by the final Markdown. An unrelated ZIP media entry is not evidence of a valid figure.
+- Generate DOCX from the existing Markdown path; retain the source file and report the resolved output path.
 
-- `phase_02_research_pack.json`（脱敏后同构产出）已落盘且 `--gate research` 通过（该 gate 对 mine 血统强制校验 `sensitive_map_path` 非空且文件存在）
-- `sensitive_map_path` 已用 `init_run_manifest.py --update` 写入 manifest（map 须 `confirmed_by_user: true`；禁止手改 markdown 声明）
-- `validate_sanitize.py` 对 pack 过检通过
-- 含密件（mining_raw / sanitize_log）均在源项目 `.patent-private/`，未进 workspace
-- 落选点入 vault 时带 `origin_sensitive_map_path`（血统锚点，挑选时继承进新 manifest）
+## Review and revisions
 
-## 调研（patent-research / -cli）→ 方向收敛
+- Consistency and IPR reports are accompanied by artifacts/audit/review_status.json.
+- Review status explicitly records both reviews as completed, issue IDs, severity, disposition, reviewed material paths and SHA-256 fingerprints.
+- Any changed reviewed material marks dependent conclusions stale and requires re-review.
+- Every edit plan entry and structured diff item carries the same stable issue_id. The plan records user-approved issue scope and approval basis.
+- A high-severity unresolved issue needs a concrete, issue-specific user waiver with confirmed_by_user, decision, and scope.
+- No authorized edits means revision_validation is not_required and the revision sub-check is skipped. A report file alone never proves review completion or a passing revision.
+- Authorized edits require both edit_plan and structured_diff, coverage of each approved issue, and a passed post-fix report tied to the latest hashes.
 
-- `phase_02_research_pack.json` 已落盘且 `--gate research` 通过
-- `candidate_directions`（2-3 个）或固定题目下的 `candidate_innovation_axes`
-- `recommended_direction`
-- `claims_requiring_patent_verification`
-- `channels_used` / `channel_failures` / `degraded_run`
+## Delivery
 
-## 方向收敛 → 查新（patent-prior-art）
+- --deliver-dir resolves to the exact output_dir in the manifest.
+- The final Markdown and canonical DOCX are located inside that directory. Review status names the same final Markdown and its current hash.
+- `workflow_cli.py export` reruns the active route checks and current review before DOCX generation. This is the pre-export check; it does not replace package acceptance.
+- If `sensitive_map_path` is declared, export requires `--sensitive-map` with the explicitly reselected manifest path. It validates the current map contents and confirmation binding, then scans the final Markdown and generated DOCX. A missing or mismatched path fails before the map is read.
+- Export reports `generated_pending_delivery_check` with `workflow_complete: false`. After export, run `workflow_cli.py check --gate deliver` as a separate post-export package check; when a map is declared, pass the same `--sensitive-map` path again.
+- Results distinguish checks_passed, workflow_complete, skipped, not_run, review_completed, and revision_validation.
+- Missing LibreOffice rendering produces `not_run` and keeps `workflow_complete` false.
+- Gate and invalidation state is scoped to the selected workflow mode's active route; gates excluded from that mode do not block its status.
 
-- `selected_direction`（用户确认）
-- `working_title`（工作题名，≤ 25 字）
-- vault 存在时：撞车检测已执行且结论已向用户明示；`vault_case_id` 已登记（可选字段）
+## Privacy boundary
 
-## 查新 → 写作（patent-draft）
-
-- `phase_04_patent_candidate_pool.json` + `phase_04_evidence_pack.json` 已落盘且 `--gate prior-art` 通过
-- `background_pack` 就绪并落盘 `artifacts/prior_art/phase_05_background_pack.json`（≥ 2 篇已验证背景专利 + `closest_prior_art` + `major_differences`）
-- `ipr_pack` 状态（就绪 / 降级原因）——就绪时落盘 `artifacts/prior_art/phase_05_ipr_pack.json`；只影响能否进 IPR 审查，不阻塞写作
-
-## 写作 → 审查（patent-review）
-
-- 5 个 part md 完成 + `facts_ledger.json` 落盘且 `--gate draft` 通过
-- 附图三件套（image + mmd + editable）文件真实存在
-
-## 审查 → 终稿导出
-
-- 一致性审计报告 + IPR 审查报告落盘（`artifacts/audit/`），问题清单已向用户汇报
-- 最新一轮审查无 high 项，或用户豁免已记入 `user_confirmations`
-- 若发生委托代改：`edit_plan` + `structured_diff` 留痕齐全且 `--gate review` 通过，复审报告落盘
-- `final_title`（最终题名）
-
-## 终稿导出 → 宣告完成
-
-- `--gate deliver` 通过（文件名、嵌图、附图完整性、报告齐全）
-- 交付目录只保留唯一正式 docx，过程件已下沉 `artifacts/`
+Case files and sensitive mappings remain local until the user confirms the specific material, destination, and purpose of a requested transfer. No handoff step itself sends material.

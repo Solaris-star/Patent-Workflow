@@ -1,184 +1,149 @@
 # -*- coding: utf-8 -*-
-"""
-国知局公布站「检索 + 解析」一步完成：内存中持有结果页 HTML，**默认不落盘**。
+"""Run a bounded CNIPA keyword batch and preserve partial outcomes."""
 
-内部调用 ``cnipa_epub_crawler.search_epub_keyword``（等同先 ``fetch_epub_result_html`` 再
-``parse_search_result_html``）。
-
-**输出约定**（便于 Agent 抓取且不触发误判降级）：
-
-- **stdout**：**仅一行** ``EPUB_HITS_JSON:`` + JSON 数组（UTF-8，含中文标题与 ``abstract``）。
-- **stderr**：``EPUB_MERGE:`` / ``EPUB_NOTE:`` / ``EPUB_HINT:`` 等为 **ASCII**，减轻 PowerShell 把
-  含中文的 stderr 当成 ``NativeCommandError``，以及 ``2>&1`` 合并流时的乱码。stdout 上 JSON 仍为 UTF-8
-  中文。启动时 ``reconfigure`` UTF-8。
-
-**检索词拆分（仅按空白）**：命令行中所有参数会按 **Python 空白规则**（`str.split()`）拆成多段；
-**一段一查**，结果按公开号去重合并。**不在本脚本内**对长中文做自动分词或拆字——**相关度高的语义化
-检索单位须在 Agent 生成 Bash 前完成**（见 ``prompts/prior_art_search.md``「国知局检索词（生成阶段必做）」）。
-若需**整句一次**向公布站提交（站内 AND），请改用 ``cnipa_epub_crawler.py`` 单传一句。
-
-需已安装：pip install -r tools/requirements-cnipa.txt && python -m playwright install chromium
-
-用法：
-
-  python tools/cnipa_epub_search.py 词1
-  python tools/cnipa_epub_search.py "短语 含 空格"
-  python tools/cnipa_epub_search.py 词甲 词乙 词丙
-
-**必须**至少有一个非空检索词；**不设默认**。
-
-若需将结果页 HTML 保存到磁盘，请改用 ``cnipa_epub_crawler.py``；若只对已有 HTML 文件做解析，
-请用 ``cnipa_epub_parse.py``。
-
-环境变量：与 ``cnipa_epub_crawler.py`` 相同（如 ``EPUB_WAF_MAX_WAIT_SEC``、``PLAYWRIGHT_HEADED``）。
-"""
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
+import tempfile
+from pathlib import Path
+from typing import Any
 
-_MAX_TERMS = 8
+from cnipa_batch import run_keyword_batch
 
 
 def _ensure_utf8_stdio() -> None:
-    """在 Windows 等环境下将 stdout/stderr 设为 UTF-8，避免中文 JSON 在终端乱码导致误判检索失败。"""
     for stream in (sys.stdout, sys.stderr):
         try:
-            if hasattr(stream, "reconfigure"):
-                stream.reconfigure(encoding="utf-8", errors="replace")
-        except (OSError, ValueError, TypeError):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, TypeError, ValueError):
             pass
 
 
-def _terms_from_argv(argv: list[str]) -> list[str]:
-    """从所有 argv 片段中按空白拆分（等价 str.split，连续空格视为一次分隔）。"""
+def _terms_from_args(arguments: list[str]) -> list[str]:
     terms: list[str] = []
-    for a in argv:
-        for part in (a or "").split():
-            p = part.strip()
-            if p:
-                terms.append(p)
+    seen: set[str] = set()
+    for argument in arguments:
+        for part in (argument or "").split():
+            keyword = part.strip()
+            if keyword and keyword not in seen:
+                terms.append(keyword)
+                seen.add(keyword)
     return terms
 
 
-def _dedupe_hits(hits_lists: list) -> list:
-    from cnipa_epub_parse import EpubSearchHit
+def _atomic_json(path: Path, data: dict[str, Any], *, overwrite: bool = False) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as stream:
+            json.dump(data, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        if overwrite:
+            os.replace(temp_path, path)
+        else:
+            # Publish the first snapshot without clobbering a file created after
+            # the initial CLI existence check. Later updates may replace only
+            # the file this run successfully created.
+            os.link(temp_path, path)
+    finally:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
-    seen: set[str] = set()
-    out: list[EpubSearchHit] = []
-    for hits in hits_lists:
-        for h in hits:
-            key = h.pub_number or h.link or (h.title or "")[:120]
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(h)
-    return out
 
-
-def _usage() -> None:
-    print("usage: python tools/cnipa_epub_search.py <term> [more terms...]", file=sys.stderr)
-    print(
-        "whitespace splits to multiple terms; one Playwright run per term; merge by pub_number.",
-        file=sys.stderr,
-    )
-    print('example: python tools/cnipa_epub_search.py "batch 调度 异构"', file=sys.stderr)
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Search CNIPA by keyword with bounded retries")
+    parser.add_argument("--output", "-o", help="Optional local JSON file updated after each keyword state change")
+    parser.add_argument("--max-retries", type=int, default=2,
+                        help="Retries after the first attempt for transient errors; range 0..3")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="Permit atomically replacing an existing output file")
+    parser.add_argument("terms", nargs="*", help="Search terms; whitespace also separates terms")
+    return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     _ensure_utf8_stdio()
-    argv = argv if argv is not None else sys.argv[1:]
-    terms = _terms_from_argv(argv)
+    args = _build_parser().parse_args(sys.argv[1:] if argv is None else argv)
+    terms = _terms_from_args(args.terms)
     if not terms:
-        _usage()
+        print("usage: python cnipa_epub_search.py [--output result.json] <term> [more terms...]", file=sys.stderr)
         return 2
-    if len(terms) > _MAX_TERMS:
-        print(
-            "ERROR: too many terms after split (%d > %d); shorten or run in batches."
-            % (len(terms), _MAX_TERMS),
-            file=sys.stderr,
-        )
+    if not 0 <= args.max_retries <= 3:
+        print("ERROR: --max-retries must be from 0 to 3", file=sys.stderr)
+        return 2
+    output_path = Path(args.output).expanduser().resolve() if args.output else None
+    if output_path and output_path.exists() and not args.overwrite:
+        print("ERROR: output already exists; use --overwrite to replace it", file=sys.stderr)
         return 2
 
     os.environ.setdefault("EPUB_WAF_MAX_WAIT_SEC", "180")
-
     try:
-        import playwright  # noqa: F401
         from playwright.sync_api import sync_playwright
 
-        # 额外验证：chromium binary 是否实际可用
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
             browser.close()
     except ImportError:
-        print(
-            "ERROR: playwright python package not found. Run: pip install playwright",
-            file=sys.stderr,
-        )
+        print("ERROR: Playwright is not installed; see requirements-cnipa.txt", file=sys.stderr)
         return 1
-    except Exception as e:
-        msg = str(e).lower()
-        if "executable" in msg or "browser" in msg or "chromium" in msg:
-            print(
-                "ERROR: chromium binary not found. Run: python -m playwright install chromium",
-                file=sys.stderr,
-            )
+    except Exception as error:
+        message = str(error).casefold()
+        if "executable" in message or "browser" in message or "chromium" in message:
+            print("ERROR: the local Playwright Chromium runtime is not installed", file=sys.stderr)
         else:
-            print("ERROR: playwright check failed:", e, file=sys.stderr)
+            print("ERROR: local Playwright preflight failed", file=sys.stderr)
         return 1
 
     from cnipa_epub_crawler import search_epub_keyword
     from cnipa_epub_parse import hits_to_jsonable
 
-    multi = len(terms) > 1
-    last_html = ""
-    all_batches: list = []
+    def search(keyword: str) -> list:
+        _html, hits = search_epub_keyword(keyword)
+        return hits
 
-    try:
-        for kw in terms:
-            html, hits = search_epub_keyword(kw)
-            last_html = html
-            all_batches.append(hits)
-    except Exception as e:
-        print("CNIPA_EPUB_ERROR:", e, file=sys.stderr)
-        return 1
+    latest: dict[str, Any] = {}
+    output_created_by_run = False
 
-    if multi:
-        hits = _dedupe_hits(all_batches)
-        print(
-            "EPUB_MERGE: terms=%d merged_hits=%d" % (len(terms), len(hits)),
-            file=sys.stderr,
-            flush=True,
-        )
-    else:
-        hits = all_batches[0]
+    def persist(snapshot: dict[str, Any]) -> None:
+        nonlocal latest, output_created_by_run
+        latest = {
+            **snapshot,
+            "keywords": terms,
+            "max_retries": args.max_retries,
+        }
+        if output_path:
+            _atomic_json(output_path, latest, overwrite=output_created_by_run or args.overwrite)
+            output_created_by_run = True
 
-    if not hits and last_html and len(last_html) < 20_000:
-        if multi:
-            print(
-                "EPUB_HINT: 0 hits after multi-term run; try broader terms or WebSearch (prior_art_search.md)",
-                file=sys.stderr,
-                flush=True,
-            )
-        else:
-            print(
-                "EPUB_HINT: 0 hits; try more terms (space-separated) or WebSearch",
-                file=sys.stderr,
-                flush=True,
-            )
-
-    print(
-        "EPUB_NOTE: html_bytes=%d disk=0" % len(last_html),
-        file=sys.stderr,
-        flush=True,
+    result = run_keyword_batch(
+        terms,
+        search,
+        max_retries=args.max_retries,
+        serialize=hits_to_jsonable,
+        on_update=persist if output_path else None,
     )
-    # 仅此一行写入 stdout，供管道/Agent 稳定解析（勿混入多行文本，避免误判未命中）
-    print(
-        "EPUB_HITS_JSON:",
-        json.dumps(hits_to_jsonable(hits), ensure_ascii=False),
-        flush=True,
-    )
+    latest = {**result, "keywords": terms, "max_retries": args.max_retries}
+    if output_path:
+        _atomic_json(output_path, latest, overwrite=output_created_by_run or args.overwrite)
+    all_hits = [hit for item in result["results"] for hit in item.get("hits", [])]
+    print("EPUB_HITS_JSON:", json.dumps(all_hits, ensure_ascii=False), flush=True)
+    print("CNIPA_BATCH_JSON:", json.dumps(latest, ensure_ascii=False), flush=True)
+    if output_path:
+        print("CNIPA_BATCH_SAVED:", str(output_path), file=sys.stderr, flush=True)
+    if result.get("security_stop"):
+        return 4
+    if result.get("status") == "partial":
+        return 3
+    if result.get("status") == "interrupted":
+        return 130
     return 0
 
 

@@ -1,20 +1,8 @@
 #!/usr/bin/env python3
-"""Initialize (or update) a run manifest markdown file from RUN_MANIFEST_TEMPLATE.md.
+"""Legacy compatibility helper for existing run manifests.
 
-The template self-locates relative to this script (works from any working directory).
-
-Usage:
-  python init_run_manifest.py --out artifacts/run_manifest.md \
-    --domain-scope "AI/自动驾驶" --output-dir "D:\\deliver\\patent_xxx"
-
-  # patch fields into an EXISTING manifest (the scripted way to declare a
-  # sensitive run — never hand-edit these lines):
-  python init_run_manifest.py --update --out artifacts/run_manifest.md \
-    --research-origin mine --sensitive-map-path "D:\\proj\\.patent-private\\sensitive_map.json"
-
-Exit codes:
-  0 = created/overwritten/updated
-  2 = failed
+For new software-patent collaboration runs, use workflow_cli.py init/status/resume.
+This helper remains available for explicit field updates to older manifests.
 """
 
 import argparse
@@ -40,7 +28,11 @@ def _iso_now():
 def _set_line(text: str, key: str, value: str) -> str:
     """Set '- `key`:' line to '- `key`: value' (first occurrence), replacing any
     previous value and trailing template comment."""
-    pattern = re.compile(rf"^(\s*-\s*`{re.escape(key)}`\s*:).*$", flags=re.MULTILINE)
+    tick = chr(96)
+    pattern = re.compile(
+        rf"^([ \t]*-[ \t]*{tick}?{re.escape(key)}{tick}?[ \t]*:)[ \t]*[^\r\n]*$",
+        flags=re.MULTILINE,
+    )
     if not pattern.search(text):
         return text
     return pattern.sub(lambda m: f"{m.group(1)} {value}", text, count=1)
